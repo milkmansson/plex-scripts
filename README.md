@@ -30,7 +30,7 @@ concerned - that is, if Plex is wrong, this script will also be wrong.  No other
 file naming intelligence is applied.
 
 ### copy-watched
-[`see-duplicates`](./see-duplicates/README.md) can be used when the 'watched'
+[`copy-watched`](./copy-watched/README.md) can be used when the 'watched'
 content of one user account needs to be copied to another distinct user account.
 Useful if a shared account needs to be separated, or where a user closes/reopens
 their account etc.  Copies the watched information stored on one target server.
@@ -42,3 +42,9 @@ maintained on Plex's systems.
 ## General
 General scripts for other manipulations useful on a Plex server, but not
 specific to plex.
+
+### extract-subs
+Bash script to extract subtitle files from a folder full of mkv files.  Useful
+for where batch adjustment of subtitles is necessary.  Files are extracted and
+named in such a way as plex will find and use them.
+**Package requirements:** mkvmerge, mkvextract (from MKVToolNix), jq
