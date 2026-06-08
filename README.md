@@ -41,7 +41,7 @@ maintained on Plex's systems.
 
 ## General
 General scripts for other manipulations useful on a Plex server, but not
-specific to plex.
+specific to Plex.
 
 ### extract-subs
 Bash script to extract subtitle files from a folder full of mkv files.  Useful
