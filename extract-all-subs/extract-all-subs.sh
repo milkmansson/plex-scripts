@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # extract-all-subs.sh
-# Recursively find all .mkv files under the current directory and extract
+# Recursively find all .mkv files under a directory (default: the current one) and extract
 # every subtitle track from each, saving as <filename>.<lang>.<ext> alongside
 # the source file.
 #
@@ -10,32 +10,53 @@ set -euo pipefail
 
 # --- Argument parsing ---
 DRY_RUN=0
+FORCE=0
+ROOT="."
 for arg in "$@"; do
     case "$arg" in
         --dry-run|-n)
             DRY_RUN=1
             ;;
+        -f|--force)
+            FORCE=1
+            ;;
         -h|--help)
             cat <<EOF
-Usage: $(basename "$0") [--dry-run]
+Usage: $(basename "$0") [--dry-run] [--force] [DIRECTORY]
 
-Recursively extract all subtitle tracks from every .mkv under the current
-directory, saving each one alongside its source file as:
+Recursively extract all subtitle tracks from every .mkv under DIRECTORY
+(default: the current directory), saving each one alongside its source file as:
     <filename>.<lang>.<ext>            (first track of that language)
     <filename>.<n>.<lang>.<ext>        (2nd, 3rd, ... track of same language)
 
 Options:
   -n, --dry-run    Show what would be extracted without writing any files.
+  -f, --force      Overwrite subtitle files that already exist (default: skip them).
   -h, --help       Show this help.
 EOF
             exit 0
             ;;
-        *)
+        -*)
             echo "Unknown argument: $arg" >&2
             exit 2
             ;;
+        *)
+            ROOT="$arg"
+            ;;
     esac
 done
+
+for tool in mkvmerge mkvextract jq; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "Missing required tool: $tool (mkvmerge and mkvextract come from MKVToolNix)" >&2
+        exit 1
+    fi
+done
+
+if [ ! -d "$ROOT" ]; then
+    echo "Not a directory: $ROOT" >&2
+    exit 2
+fi
 
 if [ "$DRY_RUN" -eq 1 ]; then
     echo "(dry-run mode: no files will be written)"
@@ -143,7 +164,9 @@ extract_from_file() {
         fi
 
         echo "   track $tid ($codec, lang=$code) -> ${outname}"
-        if [ "$DRY_RUN" -eq 1 ]; then
+        if [ -e "$outname" ] && [ "$FORCE" -eq 0 ]; then
+            echo "      [exists] skipped (use --force to overwrite)"
+        elif [ "$DRY_RUN" -eq 1 ]; then
             echo "      [dry-run] skipped"
         else
             mkvextract tracks "$mkv" "${tid}:${outname}" >/dev/null
@@ -152,7 +175,7 @@ extract_from_file() {
 }
 
 # Main loop: recurse from current dir, handle filenames with spaces/newlines safely
-find . -type f -iname '*.mkv' -print0 \
+find "$ROOT" -type f -iname '*.mkv' -print0 \
     | while IFS= read -r -d '' f; do
         extract_from_file "$f"
       done

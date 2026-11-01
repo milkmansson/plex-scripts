@@ -1,50 +1,74 @@
 # plex-scripts
-The scripts in this repo are for Plex database content maintenance.
-Considering the capabilities in the `plexapi` package, solutions involving
-taking the database offline and messing with the content feel needlessly risky.
-Therefore, through a combination of reverse engineering, vibe-coding and
-trial-and-error, the following scripts were born.
 
-## Plex-Related
+Command line tools for Plex library maintenance, built on
+[python-plexapi](https://python-plexapi.readthedocs.io/). They talk to the
+server through its API. Nothing here touches the Plex database file, which is
+too risky to edit by hand.
 
-### modify-recently-added
-Plex lacks the capability of tuning the contents of the 'recently added' lists
-for the relevant media.  [`modify-recently-added`](./modify-recently-added/README.md)
-modifies the 'added at' dates on content, bringing individual titles to the
-front or sending them to the back.  Useful if, for example:
-- Database was recreated, and the actual latest content needs to be brought to
-the front.
-- Content files are reorganised in the filesystem, and plex mistakenly
-recognises them as if they were new.
+| Command | What it does |
+| --- | --- |
+| [`plextool status`](docs/status.md) | Server version, library sizes, who is watching what. |
+| [`plextool scan`](docs/scan.md) | Scan libraries or a single folder, refresh metadata, empty trash, optimize. |
+| [`plextool recent`](docs/recent.md) | Change "added at" dates to reorder Recently Added. Works on movies, shows, seasons and episodes. |
+| [`plextool dupes`](docs/dupes.md) | List movies and episodes that have more than one file, and optionally delete the extras. |
+| [`plextool stale`](docs/stale.md) | Find large, unwatched or long-idle content to free up space. |
+| [`plextool audit`](docs/audit.md) | Find unmatched items, missing files, missing posters or summaries, low resolution, missing subtitle or audio languages. |
+| [`plextool watched`](docs/watched.md) | Copy watched state between users, back it up and restore it, or mark a show or movie watched. |
+| [`plextool resume`](docs/resume.md) | List or clear stuck Continue Watching entries. |
+| [`plextool playlists`](docs/playlists.md) | Back up and restore video playlists. |
+| [`extract-all-subs.sh`](extract-all-subs/README.md) | Extract every subtitle track from a folder of MKV files. |
 
-### see-duplicates
-[`see-duplicates`](./see-duplicates/README.md) reports items with duplicate files
-(in the console) so you can manually fish for and do something about them.
-Using Plex's GUI to do this task is painful, especially where spaces or non ANSI
-alphabet characters are in filenames.
+The `plextool` commands that change anything do a dry run unless you pass
+`--commit`. Deleting files (`dupes --keep`) also asks you to type `DELETE`.
+`extract-all-subs.sh` writes files unless you pass `--dry-run`.
 
-**Note:** 'Matches' are where Plex's database has recorded a 'match' - eg, that
-the two files are the same movie, for example.  Matches can be wrong, and can be
-manually made.  These would all still be duplicates as far as this output is
-concerned - that is, if Plex is wrong, this script will also be wrong.  No other
-file naming intelligence is applied.
+## Install
 
-### copy-watched
-[`copy-watched`](./copy-watched/README.md) can be used when the 'watched'
-content of one user account needs to be copied to another distinct user account.
-Useful if a shared account needs to be separated, or where a user closes/reopens
-their account etc.  Copies the watched information stored on one target server.
+Python 3.9 or later.
 
-**Note:** Does not copy Watchlist data - whilst a script for this could be
-possible, this script works against a target server.  Watchlist data is
-maintained on Plex's systems.
+```console
+$ pip install .            # installs the `plextool` command
+$ plextool --help
+```
 
-## General
-General scripts for other manipulations useful on a Plex server, but not
-specific to Plex.
+To run from a checkout without installing, `pip install -r requirements.txt`
+and use `python3 -m plextool ...` instead.
 
-### extract-subs
-Bash script to extract subtitle files from a folder full of mkv files.  Useful
-for where batch adjustment of subtitles is necessary.  Files are extracted and
-named in such a way as plex will find and use them.
-**Package requirements:** mkvmerge, mkvextract (from MKVToolNix), jq
+## Connecting
+
+You need a [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
+Set it once in your shell so it stays out of the command line and your history:
+
+```console
+$ export PLEX_TOKEN=xxxxxxxxxxxxxxxxxxxx
+$ export PLEX_URL=http://myserver:32400     # optional, default http://localhost:32400
+```
+
+`--token` and `--base-url` override these on any command.
+
+## Upgrading from the old scripts
+
+The three Python scripts are now subcommands of `plextool`, and flags are
+lower-case:
+
+| Old | New |
+| --- | --- |
+| `modify-recently-added.py -T tok -n 3 -r -y` | `plextool recent --recent 3 --release --commit` |
+| `see-duplicates.py -T tok` | `plextool dupes` |
+| `plex-copy-watched.py --src-user a --src-pass p ...` | `plextool watched copy --from a --to b` (no passwords) |
+
+`-T`, `-b`, `-l`, `-t`, `-g`, `-r`, `-N`, `-d` and `-y` still work.
+`recent` now also locks the date it sets, so a rescan can't undo it. The token
+now comes from `PLEX_TOKEN` rather than the old `PLEX-TOKEN`.
+
+## Development
+
+```console
+$ pip install -e '.[dev]'
+$ pytest
+```
+
+## Disclaimer
+
+These tools only use the documented plexapi calls, but they do write to your
+server when you pass `--commit`. Check the dry run first. Use at your own risk.
