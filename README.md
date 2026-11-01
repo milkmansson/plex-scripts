@@ -1,6 +1,6 @@
 # plex-scripts
 
-> ![WARNING]
+> [!WARNING]
 > Still in development/testing... please raise an issue if you find one!
 
 Command line tools for Plex library maintenance, built on
