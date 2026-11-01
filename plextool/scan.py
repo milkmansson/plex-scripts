@@ -5,14 +5,26 @@ from __future__ import annotations
 import argparse
 import time
 
-from .common import PlexToolError, add_connection_args, add_library_arg, connect, paint, pick_sections
+from .common import (
+    PlexToolError,
+    add_command,
+    add_connection_args,
+    add_library_arg,
+    connect,
+    paint,
+    pick_sections,
+)
 
 
 def add_parser(subparsers) -> None:
-    parser = subparsers.add_parser(
-        "scan", help="scan libraries, refresh metadata, empty trash",
-        description="Ask the server to scan libraries for new files. With no action option "
-                    "this is a plain scan. Scans run on the server; use --wait to follow them.")
+    parser = add_command(
+        subparsers, 'scan',
+        'scan libraries, refresh metadata, empty trash',
+        'Ask the server to scan libraries for new files. With no action option this is a plain scan. Scans run on the server, so the command returns at once unless you use --wait.',
+        ['plextool scan',
+        'plextool scan -l Movies --path /mnt/media/Movies/New --wait',
+        "plextool scan -l 'TV Shows' --refresh",
+        'plextool scan --empty-trash --optimize'])
     add_connection_args(parser)
     add_library_arg(parser)
     parser.add_argument("--path", help="scan only this folder (as the server sees it); needs one --library")

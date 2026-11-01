@@ -14,6 +14,7 @@ from requests.exceptions import RequestException
 from .common import (
     SECTION_LEVELS,
     PlexToolError,
+    add_command,
     add_connection_args,
     add_library_arg,
     connect,
@@ -186,14 +187,21 @@ def _kind_flags(parser) -> None:
 
 
 def add_parser(subparsers) -> None:
-    parser = subparsers.add_parser(
-        "watched", help="copy, back up, restore or bulk-set watched state",
-        description="Work with watched state. --token must be the server owner's token. Watchlists "
-                    "live on plex.tv and are not covered. Only the watched flag moves: view counts, "
-                    "last-watched dates and resume positions do not.")
+    parser = add_command(
+        subparsers, 'watched',
+        'copy, back up, restore or bulk-set watched state',
+        "Work with watched state. --token must be the server owner's. Where an action takes a user, the owner can be named too; leaving --user off means the owner. Only the watched flag moves: view counts, last-watched dates and resume positions do not. Watchlists live on plex.tv and are not covered. Everything is a dry run unless you pass --commit.",
+        ['plextool watched copy --from alice --to bob --commit',
+        'plextool watched export backup.json',
+        "plextool watched mark -t 'Some Show' --commit"])
     sub = parser.add_subparsers(dest="watched_command", required=True, metavar="action")
 
-    copy = sub.add_parser("copy", help="copy watched state from one user to another")
+    copy = add_command(
+        sub, 'copy',
+        'copy watched state from one user to another',
+        'Mark items watched for --to where --from has watched them. Users can be a username, email or Home user name. Useful when splitting a shared account, or when someone closes and reopens their Plex account.',
+        ['plextool watched copy --from alice --to bob            # preview',
+        'plextool watched copy --from alice --to bob --movies --commit'])
     add_connection_args(copy)
     copy.add_argument("--from", dest="source", required=True, metavar="USER",
                       help="user to copy from (username, email, or Home user name)")
@@ -202,14 +210,24 @@ def add_parser(subparsers) -> None:
     copy.add_argument("-y", "--commit", action="store_true", help="write the changes (default is a dry run)")
     copy.set_defaults(run=run_copy)
 
-    export = sub.add_parser("export", help="save a user's watched state to a JSON file")
+    export = add_command(
+        sub, 'export',
+        "save a user's watched state to a JSON file",
+        'Write what a user has watched to a file, as a backup or to move to another server. Read-only on the server.',
+        ['plextool watched export backup.json',
+        'plextool watched export alice.json --user alice --shows'])
     add_connection_args(export)
     export.add_argument("file", help="file to write")
     export.add_argument("--user", metavar="USER", help="user to export (default: the token owner)")
     _kind_flags(export)
     export.set_defaults(run=run_export)
 
-    imp = sub.add_parser("import", help="restore watched state from a JSON file")
+    imp = add_command(
+        sub, 'import',
+        'restore watched state from a JSON file',
+        "Mark matching unwatched items watched, from a file made by 'watched export'. It never marks anything unwatched.",
+        ['plextool watched import backup.json                  # preview',
+        'plextool watched import alice.json --user alice --commit'])
     add_connection_args(imp)
     imp.add_argument("file", help="file written by 'watched export'")
     imp.add_argument("--user", metavar="USER", help="user to import into (default: the token owner)")
@@ -217,7 +235,12 @@ def add_parser(subparsers) -> None:
     imp.add_argument("-y", "--commit", action="store_true", help="write the changes (default is a dry run)")
     imp.set_defaults(run=run_import)
 
-    mark = sub.add_parser("mark", help="mark movies, shows, seasons or episodes watched/unwatched")
+    mark = add_command(
+        sub, 'mark',
+        'mark movies, shows, seasons or episodes watched/unwatched',
+        'Mark everything matching a title watched or unwatched, such as a whole series or season. Title matching is by substring, so check the preview.',
+        ["plextool watched mark -l 'TV Shows' -t 'Some Show'      # preview",
+        "plextool watched mark -t 'Some Show' --level season --unwatched --commit"])
     add_connection_args(mark)
     add_library_arg(mark)
     mark.add_argument("-t", "--title", required=True, help="title to match (substring)")

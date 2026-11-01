@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import textwrap
 
 from plexapi.exceptions import NotFound, Unauthorized
 from plexapi.server import PlexServer
@@ -92,6 +93,15 @@ def describe(item) -> str:
 # ---------------------------------------------------------------------------
 # Connection
 # ---------------------------------------------------------------------------
+
+def add_command(subparsers, name: str, summary: str, description: str, examples: list[str]):
+    """Add a (sub)command whose --help shows a wrapped description and worked examples."""
+    description = "\n\n".join(textwrap.fill(p, 78) for p in description.split("\n\n"))
+    epilog = "examples:\n" + "\n".join(f"  {e}" for e in examples)
+    return subparsers.add_parser(
+        name, help=summary, description=description, epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+
 
 def add_connection_args(parser: argparse.ArgumentParser) -> None:
     """Add --token and --base-url, which every command needs."""

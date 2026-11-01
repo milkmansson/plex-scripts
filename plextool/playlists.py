@@ -7,7 +7,7 @@ import json
 
 from plexapi.exceptions import BadRequest
 
-from .common import PlexToolError, add_connection_args, connect, describe, paint, plural
+from .common import PlexToolError, add_command, add_connection_args, connect, describe, paint, plural
 
 FORMAT_VERSION = 1
 VIDEO_TYPES = ("movie", "episode")
@@ -35,23 +35,40 @@ def guid_lookup(plex, guids: set) -> dict:
 
 
 def add_parser(subparsers) -> None:
-    parser = subparsers.add_parser(
-        "playlists", help="list, export or import video playlists",
-        description="Back up and restore the token owner's video playlists. Items are matched by "
-                    "Plex GUID. Smart playlists are listed but not exported or recreated.")
+    parser = add_command(
+        subparsers, 'playlists',
+        'list, export or import video playlists',
+        "Back up and restore the token owner's video playlists. Items are matched by Plex GUID. Smart playlists are listed but not exported or recreated.",
+        ['plextool playlists list',
+        'plextool playlists export playlists.json',
+        'plextool playlists import playlists.json --commit'])
     sub = parser.add_subparsers(dest="playlists_command", required=True, metavar="action")
 
-    ls = sub.add_parser("list", help="list playlists")
+    ls = add_command(
+        sub, 'list',
+        'list playlists',
+        "List the token owner's playlists with their type and size. Read-only.",
+        ['plextool playlists list'])
     add_connection_args(ls)
     ls.set_defaults(run=run_list)
 
-    export = sub.add_parser("export", help="save playlists to a JSON file")
+    export = add_command(
+        sub, 'export',
+        'save playlists to a JSON file',
+        'Write playlists and the GUIDs of their items to a file. Smart playlists are recorded without items. Read-only on the server.',
+        ['plextool playlists export playlists.json',
+        'plextool playlists export christmas.json --name Christmas'])
     add_connection_args(export)
     export.add_argument("file", help="file to write")
     export.add_argument("--name", action="append", help="playlist to export; repeat for several (default: all)")
     export.set_defaults(run=run_export)
 
-    imp = sub.add_parser("import", help="recreate playlists from a JSON file")
+    imp = add_command(
+        sub, 'import',
+        'recreate playlists from a JSON file',
+        "Recreate playlists from a file made by 'playlists export'. Items not found on this server are skipped. Playlists that already exist are skipped unless you pass --replace, which deletes and recreates them.",
+        ['plextool playlists import playlists.json               # preview',
+        'plextool playlists import playlists.json --replace --commit'])
     add_connection_args(imp)
     imp.add_argument("file", help="file written by 'playlists export'")
     imp.add_argument("--replace", action="store_true", help="delete and recreate playlists that already exist")

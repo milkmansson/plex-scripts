@@ -10,6 +10,7 @@ from plexapi.exceptions import BadRequest, NotFound
 from .common import (
     FILE_LEVEL,
     PlexToolError,
+    add_command,
     add_connection_args,
     add_library_arg,
     confirm_typed,
@@ -93,11 +94,14 @@ def print_summary(number: int, entry: dict) -> None:
 
 
 def add_parser(subparsers) -> None:
-    parser = subparsers.add_parser(
-        "dupes", help="list items with more than one file",
-        description="Report movies and episodes that Plex has more than one version of. "
-                    "Read-only unless --keep is given. Duplicates are as Plex has matched them, "
-                    "right or wrong.")
+    parser = add_command(
+        subparsers, 'dupes',
+        'list items with more than one file (and optionally delete extras)',
+        'Report movies and episodes that Plex has more than one version of. Read-only unless --keep is given. Duplicates are whatever Plex has matched together, right or wrong.\n\n--keep deletes the other versions of every duplicate from disk. It is a preview unless you add --commit, and then you must type DELETE to confirm.',
+        ['plextool dupes',
+        'plextool dupes -l Movies --sort size -n 20',
+        'plextool dupes -l Movies --keep best-resolution            # preview deletions',
+        'plextool dupes -l Movies --keep best-resolution --commit   # really delete'])
     add_connection_args(parser)
     add_library_arg(parser)
     parser.add_argument("-n", "--limit", type=int, metavar="N", help="show at most N items per library")

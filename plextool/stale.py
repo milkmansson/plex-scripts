@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from .common import (
     FILE_LEVEL,
     PlexToolError,
+    add_command,
     add_connection_args,
     add_library_arg,
     connect,
@@ -73,10 +74,12 @@ def parse_size(text: str) -> int:
 
 
 def add_parser(subparsers) -> None:
-    parser = subparsers.add_parser(
-        "stale", help="find large, unwatched or idle content",
-        description="List movies and shows by disk use, filtered by how long they have gone "
-                    "unwatched. Watch history is the token owner's. Read-only.")
+    parser = add_command(
+        subparsers, 'stale',
+        'find large, unwatched or idle content',
+        "List movies and shows by disk use, filtered by how long they have gone unwatched. Conditions combine with AND. Watch history is the token owner's only. Read-only.",
+        ['plextool stale --unwatched --age 365 --min-size 5GB',
+        'plextool stale -l Movies --idle 730 -n 20'])
     add_connection_args(parser)
     add_library_arg(parser)
     parser.add_argument("--unwatched", action="store_true", help="only things never watched")

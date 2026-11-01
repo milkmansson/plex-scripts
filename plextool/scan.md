@@ -2,7 +2,7 @@
 
 Asks the server to scan libraries for new files, refresh metadata, and tidy up.
 This is the step you need after moving files around or after
-[`extract-all-subs.sh`](../extract-all-subs/README.md).
+[`plextool subs extract`](subs.md).
 
 ```console
 $ plextool scan                                     # scan every library

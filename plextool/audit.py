@@ -8,6 +8,7 @@ import json
 from .common import (
     FILE_LEVEL,
     PlexToolError,
+    add_command,
     add_connection_args,
     add_library_arg,
     connect,
@@ -91,10 +92,13 @@ def run_check(name: str, items: list, lang: str | None) -> list[dict]:
 
 
 def add_parser(subparsers) -> None:
-    parser = subparsers.add_parser(
-        "audit", help="find unmatched items, missing files, missing subtitles and more",
-        description="Report problems in your libraries. Read-only. Available checks: "
-                    + ", ".join(CHECKS) + ".")
+    parser = add_command(
+        subparsers, 'audit',
+        'find unmatched items, missing files, missing subtitles and more',
+        "Report problems in your libraries. Read-only. Checks: unmatched, no-poster, no-summary, missing-files, low-res, no-subs, no-audio. With no --check, every check that doesn't need --lang runs. no-subs and no-audio read every item's tracks and are slow on large libraries.",
+        ['plextool audit',
+        'plextool audit -c missing-files -c unmatched',
+        "plextool audit -c no-subs --lang eng -l 'TV Shows'"])
     add_connection_args(parser)
     add_library_arg(parser)
     parser.add_argument("-c", "--check", action="append", choices=list(CHECKS), metavar="CHECK",

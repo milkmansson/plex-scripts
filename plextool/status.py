@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from .common import add_connection_args, connect, describe, paint, plural, pretty_size
+from .common import add_command, add_connection_args, connect, describe, paint, plural, pretty_size
 
 
 def collect(plex) -> dict:
@@ -39,9 +39,12 @@ def collect(plex) -> dict:
 
 
 def add_parser(subparsers) -> None:
-    parser = subparsers.add_parser(
-        "status", help="show server, library and playback status",
-        description="Show the server version, each library's size, and what is playing now. Read-only.")
+    parser = add_command(
+        subparsers, 'status',
+        'show server, library and playback status',
+        "Show the server version, each library's size and what is playing now. Read-only.",
+        ['plextool status',
+        'plextool status --json'])
     add_connection_args(parser)
     parser.add_argument("--json", action="store_true", help="print JSON instead of text")
     parser.set_defaults(run=run)

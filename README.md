@@ -7,24 +7,38 @@ too risky to edit by hand.
 
 | Command | What it does |
 | --- | --- |
-| [`plextool status`](docs/status.md) | Server version, library sizes, who is watching what. |
-| [`plextool scan`](docs/scan.md) | Scan libraries or a single folder, refresh metadata, empty trash, optimize. |
-| [`plextool recent`](docs/recent.md) | Change "added at" dates to reorder Recently Added. Works on movies, shows, seasons and episodes. |
-| [`plextool dupes`](docs/dupes.md) | List movies and episodes that have more than one file, and optionally delete the extras. |
-| [`plextool stale`](docs/stale.md) | Find large, unwatched or long-idle content to free up space. |
-| [`plextool audit`](docs/audit.md) | Find unmatched items, missing files, missing posters or summaries, low resolution, missing subtitle or audio languages. |
-| [`plextool watched`](docs/watched.md) | Copy watched state between users, back it up and restore it, or mark a show or movie watched. |
-| [`plextool resume`](docs/resume.md) | List or clear stuck Continue Watching entries. |
-| [`plextool playlists`](docs/playlists.md) | Back up and restore video playlists. |
-| [`extract-all-subs.sh`](extract-all-subs/README.md) | Extract every subtitle track from a folder of MKV files. |
+| [`plextool status`](plextool/status.md) | Server version, library sizes, who is watching what. |
+| [`plextool scan`](plextool/scan.md) | Scan libraries or a single folder, refresh metadata, empty trash, optimize. |
+| [`plextool recent`](plextool/recent.md) | Change "added at" dates to reorder Recently Added. Works on movies, shows, seasons and episodes. |
+| [`plextool dupes`](plextool/dupes.md) | List movies and episodes that have more than one file, and optionally delete the extras. |
+| [`plextool stale`](plextool/stale.md) | Find large, unwatched or long-idle content to free up space. |
+| [`plextool audit`](plextool/audit.md) | Find unmatched items, missing files, missing posters or summaries, low resolution, missing subtitle or audio languages. |
+| [`plextool watched`](plextool/watched.md) | Copy watched state between users, back it up and restore it, or mark a show or movie watched. |
+| [`plextool resume`](plextool/resume.md) | List or clear stuck Continue Watching entries. |
+| [`plextool playlists`](plextool/playlists.md) | Back up and restore video playlists. |
+| [`plextool subs`](plextool/subs.md) | Extract subtitle tracks from MKV and MP4 files, named for Plex (forced and SDH included), and optionally trigger a scan. |
 
 The `plextool` commands that change anything do a dry run unless you pass
 `--commit`. Deleting files (`dupes --keep`) also asks you to type `DELETE`.
-`extract-all-subs.sh` writes files unless you pass `--dry-run`.
+
+## Getting help
+
+Every command explains itself, with options and examples:
+
+```console
+$ plextool --help
+$ plextool recent --help
+$ plextool watched copy --help
+```
+
+A fuller page for each command sits beside its code, in `plextool/<command>.md`
+(linked in the table above).
 
 ## Install
 
-Python 3.9 or later.
+Python 3.9 or later. `plextool subs` also needs MKVToolNix (`mkvmerge`,
+`mkvextract`) for MKV files and FFmpeg (`ffmpeg`, `ffprobe`) for MP4 files. You
+only need the ones for the file types you use.
 
 ```console
 $ pip install .            # installs the `plextool` command
@@ -56,6 +70,7 @@ lower-case:
 | `modify-recently-added.py -T tok -n 3 -r -y` | `plextool recent --recent 3 --release --commit` |
 | `see-duplicates.py -T tok` | `plextool dupes` |
 | `plex-copy-watched.py --src-user a --src-pass p ...` | `plextool watched copy --from a --to b` (no passwords) |
+| `extract-all-subs.sh --dry-run DIR` | `plextool subs extract DIR` (preview by default; add `--commit` to write) |
 
 `-T`, `-b`, `-l`, `-t`, `-g`, `-r`, `-N`, `-d` and `-y` still work.
 `recent` now also locks the date it sets, so a rescan can't undo it. The token

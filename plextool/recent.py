@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from .common import (
     SECTION_LEVELS,
     PlexToolError,
+    add_command,
     add_connection_args,
     connect,
     describe,
@@ -128,10 +129,14 @@ def apply_dates(item, args: argparse.Namespace, now: datetime) -> dict:
 
 
 def add_parser(subparsers) -> None:
-    parser = subparsers.add_parser(
-        "recent", help="change 'added at' dates to reorder Recently Added",
-        description="Change the 'added at' date of movies, shows, seasons or episodes. "
-                    "Nothing is written unless --commit is given.")
+    parser = add_command(
+        subparsers, 'recent',
+        "change 'added at' dates to reorder Recently Added",
+        "Change the 'added at' date of movies, shows, seasons or episodes, which moves them in Plex's Recently Added lists. Pick what to change (--title, --guid or --recent) and the new date (--date, --release, --now or --shift). Nothing is written unless --commit is given.\n\nPlex builds the TV Recently Added list from episodes. To reorder a series, use --cascade or --level episode.",
+        ['plextool recent -l Movies -n 3 --release                  # preview the last 3 movies',
+        'plextool recent -g plex://movie/abc123 --release --commit',
+        "plextool recent -l 'TV Shows' -t 'Some Show' --cascade --release --commit",
+        "plextool recent -l 'TV Shows' --level episode -n 20 --shift=-7d --commit"])
     add_connection_args(parser)
     parser.add_argument("-l", "--library", action="append", metavar="NAME",
                         help="library name; repeat for several (default: all movie and TV libraries)")

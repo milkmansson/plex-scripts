@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timedelta
 
-from .common import PlexToolError, add_connection_args, connect, describe
+from .common import PlexToolError, add_command, add_connection_args, connect, describe
 
 
 def percent(item) -> int:
@@ -24,10 +24,13 @@ def select(items: list, now: datetime, idle_days: int | None = None) -> list:
 
 
 def add_parser(subparsers) -> None:
-    parser = subparsers.add_parser(
-        "resume", help="list or clear Continue Watching entries",
-        description="List partly-watched items in the token owner's Continue Watching. "
-                    "With --clear, remove them by marking them watched or unwatched.")
+    parser = add_command(
+        subparsers, 'resume',
+        'list or clear Continue Watching entries',
+        "List partly-watched items in the token owner's Continue Watching. With --clear, remove them by marking them watched or unwatched. Nothing is written unless --commit is given.",
+        ['plextool resume',
+        'plextool resume --idle 90 --clear watched            # preview',
+        'plextool resume --idle 90 --clear watched --commit'])
     add_connection_args(parser)
     parser.add_argument("--idle", type=int, metavar="DAYS", help="only items not played in the last DAYS days")
     parser.add_argument("--clear", choices=("watched", "unwatched"),
