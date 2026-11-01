@@ -16,7 +16,7 @@ too risky to edit by hand.
 | [`plextool watched`](plextool/watched.md) | Copy watched state between users, back it up and restore it, or mark a show or movie watched. |
 | [`plextool resume`](plextool/resume.md) | List or clear stuck Continue Watching entries. |
 | [`plextool playlists`](plextool/playlists.md) | Back up and restore video playlists. |
-| [`plextool subs`](plextool/subs.md) | Extract subtitle tracks from MKV and MP4 files, named for Plex (forced and SDH included), and optionally trigger a scan. |
+| [`plextool subs`](plextool/subs.md) | Extract subtitles from MKV and MP4 files, save Plex's on-demand downloaded subtitles next to the video, or search for new ones and pick which to download. Files are named for Plex, forced and SDH included. |
 
 The `plextool` commands that change anything do a dry run unless you pass
 `--commit`. Deleting files (`dupes --keep`) also asks you to type `DELETE`.

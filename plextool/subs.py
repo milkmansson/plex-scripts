@@ -253,11 +253,13 @@ def parse_types(text: str) -> list[str]:
 def add_parser(subparsers) -> None:
     parser = add_command(
         subparsers, "subs", "extract embedded subtitles from MKV and MP4 files",
-        "Work with subtitles inside video files. MKV files need mkvmerge and mkvextract (from "
-        "MKVToolNix); MP4 files need ffmpeg and ffprobe. You only need the tools for the file "
-        "types you use: files whose tools are missing are skipped with a note.",
-        ["plextool subs extract /mnt/media/Movies                 # preview",
-         "plextool subs extract /mnt/media/Movies --commit --scan Movies"])
+        "Work with subtitles. 'extract' pulls embedded tracks out of video files: MKV files need "
+        "mkvmerge and mkvextract (from MKVToolNix), MP4 files need ffmpeg and ffprobe, and you "
+        "only need the tools for the types you use. 'export' saves subtitles Plex downloaded on "
+        "demand next to the video, and 'fetch' searches for new ones.",
+        ["plextool subs extract /mnt/media/Movies                 # embedded tracks, preview",
+         "plextool subs export -t 'Some Show' --commit             # Plex's downloaded subs",
+         "plextool subs fetch -t 'Some Movie' --lang en --list     # browse available subs"])
     sub = parser.add_subparsers(dest="subs_command", required=True, metavar="action")
 
     extract = add_command(
@@ -285,6 +287,10 @@ def add_parser(subparsers) -> None:
                          help="folder to scan, as the Plex server sees it (default: DIRECTORY)")
     add_connection_args(extract)
     extract.set_defaults(run=run_extract)
+
+    from . import ondemand  # imported here because ondemand builds on this module
+
+    ondemand.add_actions(sub)
 
 
 def run_extract(args: argparse.Namespace) -> int:
