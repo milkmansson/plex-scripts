@@ -1,5 +1,8 @@
 # plex-scripts
 
+> ![WARNING]
+> Still in development/testing... please raise an issue if you find one!
+
 Command line tools for Plex library maintenance, built on
 [python-plexapi](https://python-plexapi.readthedocs.io/). They talk to the
 server through its API. Nothing here touches the Plex database file, which is
