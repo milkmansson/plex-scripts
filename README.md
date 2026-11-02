@@ -39,8 +39,9 @@ Typical jobs:
 - **Back up and restore playlists.** [`plextool playlists`](https://github.com/milkmansson/plextool/blob/main/plextool/playlists.md) saves video playlists
   to a file and recreates them on the same or another server.
 - **Get subtitles.** [`plextool subs`](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md) extracts the subtitle tracks inside MKV and MP4
-  files, saves subtitles that Plex downloaded on demand next to the video, and searches Plex's
-  subtitle providers for a language and downloads one.
+  files, searches Plex's subtitle providers for a language and downloads one, and copies
+  subtitles Plex downloaded out of its database into files beside the video. Plex itself
+  never writes them there.
 - **Script Plex.** Reports can print JSON, and exports can go through a pipe, so the output
   feeds other tools.
 
@@ -64,7 +65,7 @@ internet, or directly with no internet access ([`plextool server`](https://githu
 | [`plextool watched`](https://github.com/milkmansson/plextool/blob/main/plextool/watched.md) | Copy watched state between users, back it up and restore it, or mark a show or movie watched. |
 | [`plextool resume`](https://github.com/milkmansson/plextool/blob/main/plextool/resume.md) | List or clear stuck Continue Watching entries. |
 | [`plextool playlists`](https://github.com/milkmansson/plextool/blob/main/plextool/playlists.md) | Back up and restore video playlists. |
-| [`plextool subs`](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md) | Extract subtitles from MKV and MP4 files, save Plex's on-demand downloaded subtitles next to the video, or search for new ones and pick which to download. Files are named for Plex, forced and SDH included. |
+| [`plextool subs`](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md) | Extract subtitles from MKV and MP4 files, search Plex's subtitle providers for new ones and pick which to download, and copy subtitles Plex downloaded (kept in its database, not beside the video) out as files next to the video. Files are named for Plex, forced and SDH included. |
 
 The `plextool` commands that change anything do a dry run unless you pass
 `--commit`. Deleting files (`dupes --keep`) also asks you to type `DELETE`.
@@ -96,13 +97,22 @@ To get, say, Swedish subtitles for that movie from the subtitle providers Plex s
 ```console
 $ plextool subs fetch -t "Some Movie" --lang sv --list               # see what is available; nothing is downloaded
 $ plextool subs fetch -t "Some Movie" --lang sv --choose --commit    # pick one; Plex downloads it
+$ plextool subs fetch -t "Some Movie" --lang sv --choose --export --commit   # same, and also save a file beside the video
 ```
 
-The subtitle is added to the movie in Plex, so pick it from the player's subtitle
-menu. Add `--export` to also save it as a file beside the video; for that, this
-machine must be able to read the media files (see `--map` in the
-[`subs` page](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md)). For a TV show, `-t "Some Show"` covers every
-episode, which is a search for each one, so start with `--list`.
+Plex keeps a subtitle it downloads from a provider in its own database. It does not
+write a file next to the video, so only Plex can use it. The first two commands stop
+there: pick the subtitle from the player's subtitle menu.
+
+The third command, with `--export`, also gives an ordinary subtitle file
+(`<video name>.sv.srt`, which other players and servers can use): plextool copies the
+subtitle out of Plex and saves it beside the video. For that, the machine you run it on
+must be able to read the media files. If it sees them under a different path than Plex
+does, use `--map` (see the
+[`subs` page](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md)).
+
+For a TV show, `-t "Some Show"` covers every episode, which is a search for each one,
+so start with `--list`.
 
 If the server is on the machine you are typing on, skip `server find` and `server use`:
 plextool tries `http://localhost:32400` by default. Without internet access, see

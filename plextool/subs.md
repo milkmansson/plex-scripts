@@ -5,7 +5,7 @@ Three actions for subtitles:
 | Action | What it does |
 | --- | --- |
 | [`extract`](#extract) | Pull the subtitle tracks embedded in MKV and MP4 files out as separate files. |
-| [`export`](#export) | Save subtitles that Plex downloaded on demand next to the video. |
+| [`export`](#export) | Copy subtitles that Plex downloaded out of its database and save them next to the video. |
 | [`fetch`](#fetch) | Search Plex's subtitle providers for a language and download one, with a chance to choose. |
 
 All three name files the same way (see [Naming](#naming)) and are a preview
@@ -116,8 +116,12 @@ slow on big libraries. Narrow it with `-l`, `-t` or `-n` when you can.
 ## fetch
 
 Searches Plex's subtitle providers for movies and episodes that have no subtitle
-in a language, and downloads one into Plex. Add `--export` to also save it
-beside the video.
+in a language, and downloads one into Plex.
+
+Plex keeps what it downloads in its own database and does not write a file next to
+the video, so only Plex can use it. Add `--export` to also save it as a file beside
+the video, which other players and servers can use. That needs this machine to be
+able to read the media files (see `--map`).
 
 ```console
 $ plextool subs fetch -t "Some Movie" --lang en --list         # just look
