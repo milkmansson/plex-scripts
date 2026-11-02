@@ -33,6 +33,15 @@ $ plextool watched export alice-watched.json --user alice
 $ plextool watched import alice-watched.json --user alice --commit
 ```
 
+Use `-` as the file to write to standard output or read from standard input,
+so the data can go straight through a pipe. The "Wrote N items" message then
+goes to standard error and stays out of the data:
+
+```console
+$ plextool watched export - --user alice | gzip > alice-watched.json.gz
+$ plextool watched export - --user alice | plextool watched import - --user bob --commit
+```
+
 Import marks matching unwatched items as watched. It never marks anything
 unwatched.
 

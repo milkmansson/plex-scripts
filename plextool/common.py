@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shlex
 import subprocess
 import sys
 import textwrap
+from typing import TextIO
 from pathlib import Path
 
 from plexapi.exceptions import NotFound, Unauthorized
@@ -178,6 +180,35 @@ def connect(args: argparse.Namespace) -> PlexServer:
         raise PlexToolError(f"The Plex server rejected the token from {source} (401).") from None
     except RequestException as e:
         raise PlexToolError(f"Could not reach {args.base_url}: {e}") from None
+
+
+def write_json(path: str, data: dict) -> TextIO:
+    """Write data as JSON to a file, or to standard output if path is '-'.
+
+    Returns the stream a status message should go to: standard error when the data is
+    on standard output, so the message can't end up inside it.
+    """
+    if path == "-":
+        json.dump(data, sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+        return sys.stderr
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except OSError as e:
+        raise PlexToolError(f"Could not write {path}: {e}") from None
+    return sys.stdout
+
+
+def read_json(path: str) -> dict:
+    """Read JSON from a file, or from standard input if path is '-'."""
+    try:
+        if path == "-":
+            return json.load(sys.stdin)
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError) as e:
+        raise PlexToolError(f"Could not read {'standard input' if path == '-' else path}: {e}") from None
 
 
 def pick_sections(plex: PlexServer, names: list[str] | None) -> list:

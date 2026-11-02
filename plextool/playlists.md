@@ -10,6 +10,14 @@ $ plextool playlists import playlists.json            # preview
 $ plextool playlists import playlists.json --commit
 ```
 
+Use `-` as the file to write to standard output or read from standard input.
+The "Wrote N playlists" message then goes to standard error, so it stays out of
+the data:
+
+```console
+$ plextool playlists export - | plextool playlists import - --commit
+```
+
 - Items are matched by Plex GUID, so you can restore onto the same server after
   a rebuild, or onto another server that has the same content matched.
 - Items not found on the target server are skipped and counted.

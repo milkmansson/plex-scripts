@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from datetime import datetime
 
 from plexapi.exceptions import NotFound
@@ -22,6 +21,8 @@ from .common import (
     paint,
     pick_sections,
     plural,
+    read_json,
+    write_json,
 )
 
 # Each kind of watched item: (name in files and flags, library type, item type)
@@ -140,18 +141,14 @@ def run_export(args: argparse.Namespace) -> int:
     admin = connect(args)
     watched = collect_watched(user_server(args, admin, args.user), wanted_kinds(args))
     data = to_file_data(args.user or "owner", watched)
-    with open(args.file, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    print(f"Wrote {sum(len(v) for v in watched.values())} watched item(s) to {args.file}")
+    out = write_json(args.file, data)
+    print(f"Wrote {sum(len(v) for v in watched.values())} watched item(s) to "
+          f"{'standard output' if args.file == '-' else args.file}", file=out)
     return 0
 
 
 def run_import(args: argparse.Namespace) -> int:
-    try:
-        with open(args.file, encoding="utf-8") as f:
-            watched = from_file_data(json.load(f))
-    except (OSError, ValueError) as e:
-        raise PlexToolError(f"Could not read {args.file}: {e}") from None
+    watched = from_file_data(read_json(args.file))
     admin = connect(args)
     total = apply_watched(user_server(args, admin, args.user), watched, wanted_kinds(args), args.commit)
     report(total, args.user or "the owner", args.commit)
@@ -217,7 +214,7 @@ def add_parser(subparsers) -> None:
         ['plextool watched export backup.json',
         'plextool watched export alice.json --user alice --shows'])
     add_connection_args(export)
-    export.add_argument("file", help="file to write")
+    export.add_argument("file", help="file to write ('-' for standard output)")
     export.add_argument("--user", metavar="USER", help="user to export (default: the token owner)")
     _kind_flags(export)
     export.set_defaults(run=run_export)
@@ -229,7 +226,7 @@ def add_parser(subparsers) -> None:
         ['plextool watched import backup.json                  # preview',
         'plextool watched import alice.json --user alice --commit'])
     add_connection_args(imp)
-    imp.add_argument("file", help="file written by 'watched export'")
+    imp.add_argument("file", help="file written by 'watched export' ('-' for standard input)")
     imp.add_argument("--user", metavar="USER", help="user to import into (default: the token owner)")
     _kind_flags(imp)
     imp.add_argument("-y", "--commit", action="store_true", help="write the changes (default is a dry run)")
