@@ -39,9 +39,9 @@ Typical jobs:
 - **Back up and restore playlists.** [`plextool playlists`](https://github.com/milkmansson/plextool/blob/main/plextool/playlists.md) saves video playlists
   to a file and recreates them on the same or another server.
 - **Get subtitles.** [`plextool subs`](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md) extracts the subtitle tracks inside MKV and MP4
-  files, searches Plex's subtitle providers for a language and downloads one, and copies
-  subtitles Plex downloaded out of its database into files beside the video. Plex itself
-  never writes them there.
+  files, searches Plex's subtitle providers for a language and downloads one, and, with
+  `--export`, copies the subtitle Plex downloaded out of its database into a file beside
+  the video so it works outside Plex too. Plex itself never writes that file.
 - **Script Plex.** Reports can print JSON, and exports can go through a pipe, so the output
   feeds other tools.
 
@@ -100,16 +100,19 @@ $ plextool subs fetch -t "Some Movie" --lang sv --choose --commit    # pick one;
 $ plextool subs fetch -t "Some Movie" --lang sv --choose --export --commit   # same, and also save a file beside the video
 ```
 
-Plex keeps a subtitle it downloads from a provider in its own database. It does not
-write a file next to the video, meaning, only Plex can use the subtitles it downloads. The first two commands stop
-there: pick the subtitle from the player's subtitle menu.
+**Where the subtitle ends up.** When Plex downloads a subtitle from a provider, it keeps
+the copy in its own database. It does not put a file next to the video, so only Plex can
+show it: another player, or another Plex server, never sees it. The first two commands stop
+there, and you pick the subtitle from the player's subtitle menu.
 
-The third command, with `--export`, also gives an ordinary subtitle file
-(`<video name>.sv.srt`, which other players and servers can use): plextool copies the
-subtitle out of Plex and saves it beside the video. For that, the machine you run it on
-must be able to read the media files. If it sees them under a different path than Plex
-does, use `--map`. The [`subs` page](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md#where-each-subtitle-comes-from)
-sets out where each kind of subtitle comes from.
+**`--export` gets around that.** Once Plex has downloaded the subtitle, plextool copies
+Plex's stored copy out of the server and saves it as an ordinary file beside the video
+(`<video name>.sv.srt`), which any player can use. It doesn't read the video file, so the
+MKV or MP4 is never opened, and it doesn't contact the subtitle provider. (Subtitle
+tracks that are already inside an MKV or MP4 are a different job, for `plextool subs extract`.)
+For `--export`, the machine you run it on must be able to read the media files. If it sees
+them under a different path than Plex does, use `--map`. The
+[`subs` page](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md#where-each-subtitle-comes-from) sets out where each kind of subtitle comes from.
 
 For a TV show, `-t "Some Show"` covers every episode, which is a search for each one,
 so start with `--list`.
