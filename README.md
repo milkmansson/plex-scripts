@@ -10,6 +10,7 @@ too risky to edit by hand.
 
 | Command | What it does |
 | --- | --- |
+| [`plextool auth`](plextool/auth.md) | Sign in to Plex with a link or QR code, get a short-lived token, and wipe the saved login and keys. |
 | [`plextool status`](plextool/status.md) | Server version, library sizes, who is watching what. |
 | [`plextool scan`](plextool/scan.md) | Scan libraries or a single folder, refresh metadata, empty trash, optimize. |
 | [`plextool recent`](plextool/recent.md) | Change "added at" dates to reorder Recently Added. Works on movies, shows, seasons and episodes. |
@@ -53,15 +54,24 @@ and use `python3 -m plextool ...` instead.
 
 ## Connecting
 
-You need a [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
-Set it once in your shell so it stays out of the command line and your history:
+Sign in once. This prints a link (and a QR code, if `segno` is installed) to
+approve in a browser:
 
 ```console
-$ export PLEX_TOKEN=xxxxxxxxxxxxxxxxxxxx
+$ plextool auth login
 $ export PLEX_URL=http://myserver:32400     # optional, default http://localhost:32400
 ```
 
-`--token` and `--base-url` override these on any command.
+That saves a short-lived token, and the signing key that renews it, in
+`~/.config/plextool/` (readable only by you). [`plextool auth`](plextool/auth.md)
+explains exactly what is kept, how to wipe it with `plextool auth wipe`, and the
+`--type token` alternative.
+
+If you would rather supply your own [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/),
+plextool looks for one in this order: `--token`, `--token-file FILE` (`-` for
+standard input), `$PLEX_TOKEN`, the output of `$PLEX_TOKEN_CMD`, then the saved
+login. Prefer `--token-file` or the environment to `--token`, which leaves the
+token in your shell history.
 
 ## Upgrading from the old scripts
 
@@ -77,7 +87,7 @@ lower-case:
 
 `-T`, `-b`, `-l`, `-t`, `-g`, `-r`, `-N`, `-d` and `-y` still work.
 `recent` now also locks the date it sets, so a rescan can't undo it. The token
-now comes from `PLEX_TOKEN` rather than the old `PLEX-TOKEN`.
+now comes from `PLEX_TOKEN` rather than the old `PLEX-TOKEN`, or from `plextool auth login`.
 
 ## Development
 

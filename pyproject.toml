@@ -9,10 +9,11 @@ description = "Maintenance helpers for a Plex Media Server"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
-dependencies = ["plexapi>=4.15"]
+dependencies = ["plexapi>=4.18", "pyjwt[crypto]"]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+qr = ["segno"]
+dev = ["pytest", "ruff", "segno"]
 
 [project.scripts]
 plextool = "plextool.cli:main"
