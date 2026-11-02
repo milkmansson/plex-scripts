@@ -17,7 +17,7 @@ Typical jobs:
 - **Fix the Recently Added order.** This is what it was first built for. Plex has no way to
   edit the Recently Added lists, so after you rebuild the database, delete
   duplicate files and rescan, or reorganise files on disk, everything shows up as
-  "new" and the real newest content is buried. [`plextool recent`](plextool/recent.md)
+  "new" and the real newest content is buried. [`plextool recent`](https://github.com/milkmansson/plextool/blob/main/plextool/recent.md)
   changes the "added at" date of movies, shows, seasons and episodes: set each
   item back to its own release or air date, shift dates by an offset, or set one date for a
   whole batch. The date is locked so a rescan can't undo it.
@@ -25,20 +25,20 @@ Typical jobs:
   $ plextool recent --recent 20 --release              # preview: put the 20 newest back to their release dates
   $ plextool recent --title "Some Show" --shift=-30d --commit
   ```
-- **Find and remove duplicate movies and episodes.** [`plextool dupes`](plextool/dupes.md)
+- **Find and remove duplicate movies and episodes.** [`plextool dupes`](https://github.com/milkmansson/plextool/blob/main/plextool/dupes.md)
   lists every item Plex holds more than one file for, and can delete the extras you don't want.
-- **Free up disk space.** [`plextool stale`](plextool/stale.md) finds large, never-watched or
+- **Free up disk space.** [`plextool stale`](https://github.com/milkmansson/plextool/blob/main/plextool/stale.md) finds large, never-watched or
   long-idle movies and shows.
-- **Audit a library.** [`plextool audit`](plextool/audit.md) reports unmatched items, missing files,
+- **Audit a library.** [`plextool audit`](https://github.com/milkmansson/plextool/blob/main/plextool/audit.md) reports unmatched items, missing files,
   missing posters or summaries, low-resolution video, and missing subtitle or audio languages.
-- **Copy, back up and restore watched status.** [`plextool watched`](plextool/watched.md) moves watched
+- **Copy, back up and restore watched status.** [`plextool watched`](https://github.com/milkmansson/plextool/blob/main/plextool/watched.md) moves watched
   state between users (for example when a shared account is split), saves it to a file, and
   restores it after a rebuild or when someone closes and reopens their Plex account.
-- **Clear a stuck Continue Watching list.** [`plextool resume`](plextool/resume.md) lists and removes
+- **Clear a stuck Continue Watching list.** [`plextool resume`](https://github.com/milkmansson/plextool/blob/main/plextool/resume.md) lists and removes
   entries that won't go away.
-- **Back up and restore playlists.** [`plextool playlists`](plextool/playlists.md) saves video playlists
+- **Back up and restore playlists.** [`plextool playlists`](https://github.com/milkmansson/plextool/blob/main/plextool/playlists.md) saves video playlists
   to a file and recreates them on the same or another server.
-- **Get subtitles.** [`plextool subs`](plextool/subs.md) extracts the subtitle tracks inside MKV and MP4
+- **Get subtitles.** [`plextool subs`](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md) extracts the subtitle tracks inside MKV and MP4
   files, saves subtitles that Plex downloaded on demand next to the video, and searches Plex's
   subtitle providers for a language such as Swedish and downloads one.
 - **Script Plex.** Reports can print JSON, and exports can go through a pipe, so the output
@@ -46,32 +46,32 @@ Typical jobs:
 
 Everything that changes the server is a preview until you pass `--commit`. plextool uses Plex's API and
 never edits the Plex database file. It signs in through your browser with
-[`plextool auth`](plextool/auth.md), and works against a server on the same machine, across the
-internet, or directly with no internet access ([`plextool server`](plextool/server.md)).
+[`plextool auth`](https://github.com/milkmansson/plextool/blob/main/plextool/auth.md), and works against a server on the same machine, across the
+internet, or directly with no internet access ([`plextool server`](https://github.com/milkmansson/plextool/blob/main/plextool/server.md)).
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| [`plextool auth`](plextool/auth.md) | Sign in to Plex with a link or QR code, list and remove old sign-ins from your account, and wipe the saved login and keys. |
-| [`plextool server`](plextool/server.md) | Find servers on your account or network and choose the one to use. Covers working offline or directly against the server. |
-| [`plextool status`](plextool/status.md) | Server version, library sizes, who is watching what. |
-| [`plextool scan`](plextool/scan.md) | Scan libraries or a single folder, refresh metadata, empty trash, optimize. |
-| [`plextool recent`](plextool/recent.md) | Change "added at" dates to reorder Recently Added. Works on movies, shows, seasons and episodes. |
-| [`plextool dupes`](plextool/dupes.md) | List movies and episodes that have more than one file, and optionally delete the extras. |
-| [`plextool stale`](plextool/stale.md) | Find large, unwatched or long-idle content to free up space. |
-| [`plextool audit`](plextool/audit.md) | Find unmatched items, missing files, missing posters or summaries, low resolution, missing subtitle or audio languages. |
-| [`plextool watched`](plextool/watched.md) | Copy watched state between users, back it up and restore it, or mark a show or movie watched. |
-| [`plextool resume`](plextool/resume.md) | List or clear stuck Continue Watching entries. |
-| [`plextool playlists`](plextool/playlists.md) | Back up and restore video playlists. |
-| [`plextool subs`](plextool/subs.md) | Extract subtitles from MKV and MP4 files, save Plex's on-demand downloaded subtitles next to the video, or search for new ones and pick which to download. Files are named for Plex, forced and SDH included. |
+| [`plextool auth`](https://github.com/milkmansson/plextool/blob/main/plextool/auth.md) | Sign in to Plex with a link or QR code, list and remove old sign-ins from your account, and wipe the saved login and keys. |
+| [`plextool server`](https://github.com/milkmansson/plextool/blob/main/plextool/server.md) | Find servers on your account or network and choose the one to use. Covers working offline or directly against the server. |
+| [`plextool status`](https://github.com/milkmansson/plextool/blob/main/plextool/status.md) | Server version, library sizes, who is watching what. |
+| [`plextool scan`](https://github.com/milkmansson/plextool/blob/main/plextool/scan.md) | Scan libraries or a single folder, refresh metadata, empty trash, optimize. |
+| [`plextool recent`](https://github.com/milkmansson/plextool/blob/main/plextool/recent.md) | Change "added at" dates to reorder Recently Added. Works on movies, shows, seasons and episodes. |
+| [`plextool dupes`](https://github.com/milkmansson/plextool/blob/main/plextool/dupes.md) | List movies and episodes that have more than one file, and optionally delete the extras. |
+| [`plextool stale`](https://github.com/milkmansson/plextool/blob/main/plextool/stale.md) | Find large, unwatched or long-idle content to free up space. |
+| [`plextool audit`](https://github.com/milkmansson/plextool/blob/main/plextool/audit.md) | Find unmatched items, missing files, missing posters or summaries, low resolution, missing subtitle or audio languages. |
+| [`plextool watched`](https://github.com/milkmansson/plextool/blob/main/plextool/watched.md) | Copy watched state between users, back it up and restore it, or mark a show or movie watched. |
+| [`plextool resume`](https://github.com/milkmansson/plextool/blob/main/plextool/resume.md) | List or clear stuck Continue Watching entries. |
+| [`plextool playlists`](https://github.com/milkmansson/plextool/blob/main/plextool/playlists.md) | Back up and restore video playlists. |
+| [`plextool subs`](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md) | Extract subtitles from MKV and MP4 files, save Plex's on-demand downloaded subtitles next to the video, or search for new ones and pick which to download. Files are named for Plex, forced and SDH included. |
 
 The `plextool` commands that change anything do a dry run unless you pass
 `--commit`. Deleting files (`dupes --keep`) also asks you to type `DELETE`.
 
 ## Quick start
 
-From a checkout, with Python 3.9 or later:
+From a checkout:
 
 ```console
 $ pip install '.[qr]'               # '[qr]' adds a QR code to the sign-in; leave it off if you don't want one
@@ -98,12 +98,12 @@ $ plextool subs fetch -t "Some Movie" --lang sv --choose --commit    # pick one;
 The subtitle is added to the movie in Plex, so pick it from the player's subtitle
 menu. Add `--export` to also save it as a file beside the video; for that, this
 machine must be able to read the media files (see `--map` in the
-[`subs` page](plextool/subs.md)). For a TV show, `-t "Some Show"` covers every
+[`subs` page](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md)). For a TV show, `-t "Some Show"` covers every
 episode, which is a search for each one, so start with `--list`.
 
 If the server is on the machine you are typing on, skip `server find` and `server use`:
 plextool tries `http://localhost:32400` by default. Without internet access, see
-[working offline](plextool/server.md#working-offline-or-directly-against-the-server).
+[working offline](https://github.com/milkmansson/plextool/blob/main/plextool/server.md#working-offline-or-directly-against-the-server).
 
 ## Getting help
 
@@ -120,9 +120,14 @@ A fuller page for each command sits beside its code, in `plextool/<command>.md`
 
 ## Install
 
-Python 3.9 or later. `plextool subs` also needs MKVToolNix (`mkvmerge`,
-`mkvextract`) for MKV files and FFmpeg (`ffmpeg`, `ffprobe`) for MP4 files. You
-only need the ones for the file types you use.
+plextool is tested on Python 3.12. It declares Python 3.9 or later, so pip will
+install it on older versions. If something doesn't work on one, please
+[open an issue](https://github.com/milkmansson/plextool/issues) with your Python
+version.
+
+`plextool subs` also needs MKVToolNix (`mkvmerge`, `mkvextract`) for MKV files and
+FFmpeg (`ffmpeg`, `ffprobe`) for MP4 files. You only need the ones for the file types
+you use.
 
 ```console
 $ pip install .            # installs the `plextool` command
@@ -144,11 +149,11 @@ $ plextool server use "My Server"            # or: server use http://myserver:32
 ```
 
 Without a saved choice, plextool uses `http://localhost:32400`, or `$PLEX_URL`
-or `--base-url` if given. [`plextool server`](plextool/server.md) explains the
+or `--base-url` if given. [`plextool server`](https://github.com/milkmansson/plextool/blob/main/plextool/server.md) explains the
 options, including working with no internet or directly on the server's machine.
 
 That saves a Plex token in `~/.config/plextool/` (readable only by you).
-[`plextool auth`](plextool/auth.md) explains exactly what is kept, how to wipe it
+[`plextool auth`](https://github.com/milkmansson/plextool/blob/main/plextool/auth.md) explains exactly what is kept, how to wipe it
 with `plextool auth wipe`, and `--type jwt`, a short-lived token that plex.tv
 accepts but Plex Media Server doesn't yet.
 
