@@ -11,6 +11,30 @@ Three actions for subtitles:
 All three name files the same way (see [Naming](#naming)) and are a preview
 unless you pass `--commit`.
 
+## Where each subtitle comes from
+
+The three actions read from different places, which is easy to mix up:
+
+| Action | Where the subtitle comes from | What plextool connects to |
+| --- | --- | --- |
+| `extract` | A track **embedded in the video file** (MKV or MP4). | Nothing: it reads the file with `mkvextract` or `ffmpeg`. It only talks to Plex for the optional `--scan`. |
+| `fetch` | Plex's **subtitle providers on the internet**. Plex searches and downloads; plextool just asks it to. | Your Plex server. |
+| `fetch --export` | The same download, then **copied out of the Plex server**. | Your Plex server. |
+| `export` | Subtitles **Plex already has**, kept in its database from earlier downloads. | Your Plex server. |
+
+In short:
+- Only `extract` reads the video file.
+- plextool never contacts a subtitle provider itself. Plex does the searching and
+  downloading, then keeps the result in its own database and does not write a file
+  next to the video.
+- `export` (and `fetch --export`) take that stored copy back from the Plex server
+  and save it as a file beside the video. They need to be able to see the video's
+  folder (see `--map`).
+- By default `export` only takes subtitles that came from a provider, or that someone
+  uploaded. Tracks embedded in the video aren't touched, since the server has no copy
+  to fetch; use `extract` for those. `--all-external` also includes subtitle files that
+  were already beside the video.
+
 ## Tools for extract
 
 You only need the tools for the file types you use:
@@ -84,8 +108,10 @@ without a server.
 ## export
 
 When you use Plex's "Search for subtitles", the result is stored in Plex's
-database, not beside the video, and can't be reused elsewhere. `export` saves
-those subtitles as ordinary files next to the video.
+database, not beside the video, and can't be reused elsewhere. `export` fetches
+those stored subtitles back from the Plex server and saves them as ordinary files
+next to the video. It does not read the video file and does not contact any
+subtitle provider; see [Where each subtitle comes from](#where-each-subtitle-comes-from).
 
 ```console
 $ plextool subs export -t "Some Show"                   # preview
