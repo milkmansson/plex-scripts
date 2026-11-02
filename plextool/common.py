@@ -9,8 +9,8 @@ import shlex
 import subprocess
 import sys
 import textwrap
-from typing import TextIO
 from pathlib import Path
+from typing import TextIO
 
 from plexapi.exceptions import NotFound, Unauthorized
 from plexapi.server import PlexServer
@@ -19,6 +19,8 @@ from requests.exceptions import RequestException
 DEFAULT_URL = "http://localhost:32400"
 TOKEN_ENV = "PLEX_TOKEN"
 TOKEN_CMD_ENV = "PLEX_TOKEN_CMD"
+SIGN_IN_AGAIN = ("It may have been revoked or have expired. "
+                 "Sign in again with 'plextool auth login'.")
 URL_ENV = "PLEX_URL"
 
 # Which item types ('libtype') each kind of library section can be worked at.
@@ -109,8 +111,8 @@ def add_command(subparsers, name: str, summary: str, description: str, examples:
         formatter_class=argparse.RawDescriptionHelpFormatter)
 
 
-def add_connection_args(parser: argparse.ArgumentParser) -> None:
-    """Add --token, --token-file and --base-url, which every command needs."""
+def add_token_args(parser: argparse.ArgumentParser) -> None:
+    """Add --token and --token-file."""
     parser.add_argument(
         "-T", "--token", "--admin-token", dest="token", default=None,
         help="Plex token. Visible in your shell history and process list; "
@@ -118,6 +120,11 @@ def add_connection_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--token-file", dest="token_file", metavar="FILE", default=None,
         help="read the Plex token from FILE ('-' reads standard input)")
+
+
+def add_connection_args(parser: argparse.ArgumentParser) -> None:
+    """Add --token, --token-file and --base-url, which every command needs."""
+    add_token_args(parser)
     parser.add_argument(
         "-b", "--base-url", dest="base_url",
         default=os.environ.get(URL_ENV, DEFAULT_URL),
@@ -166,6 +173,7 @@ def resolve_token(args: argparse.Namespace) -> tuple[str, str]:
     from . import auth  # imported here because auth itself uses this module
     token = auth.stored_token()
     if token:
+        auth.use_saved_identity()
         return token, "saved login"
     raise PlexToolError("No Plex token found. Run 'plextool auth login', or use --token-file "
                         f"or set ${TOKEN_ENV}.")
@@ -177,7 +185,8 @@ def connect(args: argparse.Namespace) -> PlexServer:
     try:
         return PlexServer(args.base_url, args.token)
     except Unauthorized:
-        raise PlexToolError(f"The Plex server rejected the token from {source} (401).") from None
+        hint = SIGN_IN_AGAIN if source == "saved login" else "Check that token, or use 'plextool auth login'."
+        raise PlexToolError(f"The Plex server rejected the token from {source} (401). {hint}") from None
     except RequestException as e:
         raise PlexToolError(f"Could not reach {args.base_url}: {e}") from None
 
