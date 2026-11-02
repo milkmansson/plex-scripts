@@ -148,7 +148,7 @@ def add_parser(subparsers) -> None:
 
     select = parser.add_mutually_exclusive_group(required=True)
     select.add_argument("-t", "--title", help="select by title (substring match)")
-    select.add_argument("-g", "--guid", "-p", "--plex-id", dest="guid", metavar="GUID",
+    select.add_argument("-g", "--guid", dest="guid", metavar="GUID",
                         help="select by Plex ID (plex://movie/...) or agent ID (imdb://tt..., tmdb://..., tvdb://...)")
     select.add_argument("-n", "--recent", type=int, metavar="N",
                         help="select the N most recently added items (per library)")
@@ -165,7 +165,7 @@ def add_parser(subparsers) -> None:
     parser.add_argument("--no-lock", action="store_true",
                         help="don't lock the date; by default it is locked so a rescan or "
                              "metadata refresh can't reset it")
-    parser.add_argument("-y", "--commit", "--confirm", dest="commit", action="store_true",
+    parser.add_argument("-y", "--commit", dest="commit", action="store_true",
                         help="write the changes (default is a dry run)")
     parser.set_defaults(run=run)
 

@@ -232,7 +232,9 @@ def test_revoke_by_id_prefix_and_this(signed_in, capsys):
     gone.clear()
     run_cmd(["auth", "revoke", "--this", "--commit"], devs)
     assert gone == ["aaaaaaaa-current"]
-    assert "stops working" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "plex.tv will stop accepting" in out
+    assert "can keep accepting it for a while" in out
 
 
 def test_revoke_refuses_other_products_and_bad_ids(signed_in):

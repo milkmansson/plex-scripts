@@ -1,4 +1,4 @@
-# plex-scripts
+# plextool
 
 > [!WARNING]
 > Still in development/testing... please raise an issue if you find one!
@@ -7,6 +7,49 @@ Command line tools for Plex library maintenance, built on
 [python-plexapi](https://python-plexapi.readthedocs.io/). They talk to the
 server through its API. Nothing here touches the Plex database file, which is
 too risky to edit by hand.
+
+## What it is useful for
+
+plextool is a command line toolkit for looking after a Plex Media Server: fixing
+things Plex's web interface can't, and finding problems across a large library.
+Typical jobs:
+
+- **Fix the Recently Added order.** This is what it was first built for. Plex has no way to
+  edit the Recently Added lists, so after you rebuild the database, delete
+  duplicate files and rescan, or reorganise files on disk, everything shows up as
+  "new" and the real newest content is buried. [`plextool recent`](plextool/recent.md)
+  changes the "added at" date of movies, shows, seasons and episodes: set each
+  item back to its own release or air date, shift dates by an offset, or set one date for a
+  whole batch. The date is locked so a rescan can't undo it.
+  ```console
+  $ plextool recent --recent 20 --release              # preview: put the 20 newest back to their release dates
+  $ plextool recent --title "Some Show" --shift=-30d --commit
+  ```
+- **Find and remove duplicate movies and episodes.** [`plextool dupes`](plextool/dupes.md)
+  lists every item Plex holds more than one file for, and can delete the extras you don't want.
+- **Free up disk space.** [`plextool stale`](plextool/stale.md) finds large, never-watched or
+  long-idle movies and shows.
+- **Audit a library.** [`plextool audit`](plextool/audit.md) reports unmatched items, missing files,
+  missing posters or summaries, low-resolution video, and missing subtitle or audio languages.
+- **Copy, back up and restore watched status.** [`plextool watched`](plextool/watched.md) moves watched
+  state between users (for example when a shared account is split), saves it to a file, and
+  restores it after a rebuild or when someone closes and reopens their Plex account.
+- **Clear a stuck Continue Watching list.** [`plextool resume`](plextool/resume.md) lists and removes
+  entries that won't go away.
+- **Back up and restore playlists.** [`plextool playlists`](plextool/playlists.md) saves video playlists
+  to a file and recreates them on the same or another server.
+- **Get subtitles.** [`plextool subs`](plextool/subs.md) extracts the subtitle tracks inside MKV and MP4
+  files, saves subtitles that Plex downloaded on demand next to the video, and searches Plex's
+  subtitle providers for a language such as Swedish and downloads one.
+- **Script Plex.** Reports can print JSON, and exports can go through a pipe, so the output
+  feeds other tools.
+
+Everything that changes the server is a preview until you pass `--commit`. plextool uses Plex's API and
+never edits the Plex database file. It signs in through your browser with
+[`plextool auth`](plextool/auth.md), and works against a server on the same machine, across the
+internet, or directly with no internet access ([`plextool server`](plextool/server.md)).
+
+## Commands
 
 | Command | What it does |
 | --- | --- |
@@ -114,22 +157,6 @@ plextool looks for one in this order: `--token`, `--token-file FILE` (`-` for
 standard input), `$PLEX_TOKEN`, the output of `$PLEX_TOKEN_CMD`, then the saved
 login. Prefer `--token-file` or the environment to `--token`, which leaves the
 token in your shell history.
-
-## Upgrading from the old scripts
-
-The three Python scripts are now subcommands of `plextool`, and flags are
-lower-case:
-
-| Old | New |
-| --- | --- |
-| `modify-recently-added.py -T tok -n 3 -r -y` | `plextool recent --recent 3 --release --commit` |
-| `see-duplicates.py -T tok` | `plextool dupes` |
-| `plex-copy-watched.py --src-user a --src-pass p ...` | `plextool watched copy --from a --to b` (no passwords) |
-| `extract-all-subs.sh --dry-run DIR` | `plextool subs extract DIR` (preview by default; add `--commit` to write) |
-
-`-T`, `-b`, `-l`, `-t`, `-g`, `-r`, `-N`, `-d` and `-y` still work.
-`recent` now also locks the date it sets, so a rescan can't undo it. The token
-now comes from `PLEX_TOKEN` rather than the old `PLEX-TOKEN`, or from `plextool auth login`.
 
 ## Development
 

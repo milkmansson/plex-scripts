@@ -182,3 +182,15 @@ def test_cli_requires_one_selector_and_one_date_mode():
         parser.parse_args(["recent", "-t", "x", "-r", "-N"])
     args = parser.parse_args(["recent", "-t", "x", "--shift=-7d", "-y"])
     assert args.commit and args.shift == -timedelta(days=7)
+
+
+@pytest.mark.parametrize("argv", [
+    ["recent", "--plex-id", "x", "--now"],
+    ["recent", "-p", "x", "--now"],
+    ["recent", "-t", "x", "--now", "--confirm"],
+    ["status", "--admin-token", "x"],
+])
+def test_old_script_spellings_are_gone(argv, capsys):
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(argv)
+    capsys.readouterr()

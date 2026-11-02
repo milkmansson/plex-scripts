@@ -114,7 +114,7 @@ account, whatever made it. That view is read-only.
 
 ### `plextool auth revoke`
 
-Removes plextool devices from your Plex account, so their tokens stop working.
+Removes plextool devices from your Plex account, so plex.tv rejects their tokens.
 It only ever removes plextool's own entries; your Plex apps, TVs and other
 devices are never touched. Like the other commands that change things, it
 is a dry run unless you pass `--commit`.
@@ -123,7 +123,7 @@ is a dry run unless you pass `--commit`.
 $ plextool auth revoke --others                 # preview: every plextool device except this login's
 $ plextool auth revoke --others --commit        # remove them
 $ plextool auth revoke 730dc1cb --commit        # one device, by the start of its ID
-$ plextool auth revoke --this --commit          # this login's own device (it stops working)
+$ plextool auth revoke --this --commit          # this login's own device
 ```
 
 - `--others` is the usual clean-up: it keeps the login this computer is using.
@@ -133,6 +133,15 @@ $ plextool auth revoke --this --commit          # this login's own device (it st
 - Several IDs can be given at once. An ID that matches nothing, or more than one
   device, is an error.
 
+**It is not an instant cut-off.** In testing, plex.tv rejected a removed
+device's token straight away, but a Plex Media Server kept accepting the same
+token at least five minutes later. A server remembers a token it has already
+accepted for a while; how long is up to Plex and not something plextool
+controls. Removing the device still blocks the token at plex.tv, so it can no
+longer be used to sign in, list servers or manage the account, and servers stop
+accepting it once they check again. If a token has leaked, revoke it straight
+away and don't assume the server stops at that moment.
+
 ### `plextool auth wipe`
 
 Deletes `auth.json`, both key files and the server chosen with `plextool server`, then removes the folder if it is
@@ -141,7 +150,9 @@ empty. It asks you to type `WIPE` first; `--assume-yes` skips that.
 Wiping only removes things from this computer. To cut off access on Plex's
 side too, run `plextool auth revoke --this --commit` before wiping, or remove
 **plextool** under **Authorized Devices** in your Plex account afterwards. Do
-that as well if a computer is lost or a key or token may have been copied.
+that as well if a computer is lost or a key or token may have been copied. See
+[the note on revoking](#plextool-auth-revoke): a server can keep accepting a
+revoked token for a while.
 
 ## How other commands find the token
 

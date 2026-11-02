@@ -357,7 +357,7 @@ def revoke_devices(args: argparse.Namespace) -> None:
     for device in chosen.values():
         print(describe_device(device, current))
     if removing_current:
-        print(paint("\nThat includes this login, which stops working. Sign in again with "
+        print(paint("\nThat includes this login, which plex.tv will stop accepting. Sign in again with "
                     "'plextool auth login'.", "yellow"))
     if not args.commit:
         print("\nDry run only. Re-run with --commit to remove.")
@@ -370,6 +370,9 @@ def revoke_devices(args: argparse.Namespace) -> None:
             failed += 1
             print(paint(f"  could not remove {_short(device)}: {e}", "red"))
     print(paint(f"Removed {len(chosen) - failed}.", "green") if not failed else f"{failed} failed.")
+    if len(chosen) > failed:
+        print("plex.tv rejects a removed device's token straight away, but a Plex server can keep "
+              "accepting it for a while.")
 
 
 def wipe(assume_yes: bool) -> None:
@@ -471,7 +474,7 @@ def add_parser(subparsers) -> None:
 
     revoke = add_command(
         sub, "revoke", "remove plextool sign-ins from your Plex account",
-        "Remove plextool devices from your Plex account so their tokens stop working. Only "
+        "Remove plextool devices from your Plex account so plex.tv rejects their tokens. Only "
         "plextool's own entries can be removed; other Plex apps and devices are never touched. "
         "Nothing is removed unless you pass --commit.",
         ["plextool auth revoke --others",
@@ -484,7 +487,7 @@ def add_parser(subparsers) -> None:
     revoke.add_argument("--others", action="store_true",
                         help="every plextool device except the one this login uses")
     revoke.add_argument("--this", action="store_true",
-                        help="the device this login uses (it stops working; do this before 'auth wipe')")
+                        help="the device this login uses (do this before 'auth wipe')")
     revoke.add_argument("--commit", action="store_true", help="actually remove them")
 
     wipe_parser = add_command(

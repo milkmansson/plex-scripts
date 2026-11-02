@@ -4,8 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "plextool"
-version = "2.3.0"
+version = "3.0.0"
 description = "Maintenance helpers for a Plex Media Server"
+keywords = ["plex", "plex-media-server", "plexapi", "recently-added", "duplicates", "watched", "subtitles", "cli"]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"

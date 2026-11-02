@@ -114,7 +114,7 @@ def add_command(subparsers, name: str, summary: str, description: str, examples:
 def add_token_args(parser: argparse.ArgumentParser) -> None:
     """Add --token and --token-file."""
     parser.add_argument(
-        "-T", "--token", "--admin-token", dest="token", default=None,
+        "-T", "--token", dest="token", default=None,
         help="Plex token. Visible in your shell history and process list; "
              "prefer 'plextool auth login', --token-file or $PLEX_TOKEN")
     parser.add_argument(
