@@ -126,9 +126,9 @@ def add_connection_args(parser: argparse.ArgumentParser) -> None:
     """Add --token, --token-file and --base-url, which every command needs."""
     add_token_args(parser)
     parser.add_argument(
-        "-b", "--base-url", dest="base_url",
-        default=os.environ.get(URL_ENV, DEFAULT_URL),
-        help=f"Plex server URL (default: ${URL_ENV} or {DEFAULT_URL})")
+        "-b", "--base-url", dest="base_url", default=None,
+        help=f"Plex server URL (default: ${URL_ENV}, else the server chosen with "
+             f"'plextool server use', else {DEFAULT_URL})")
 
 
 def _token_from_file(path: str) -> str:
@@ -180,15 +180,27 @@ def resolve_token(args: argparse.Namespace) -> tuple[str, str]:
 
 
 def connect(args: argparse.Namespace) -> PlexServer:
-    """Connect to the server named in args, with friendly errors."""
+    """Connect to the server named in args, with friendly errors.
+
+    The server is --base-url, else $PLEX_URL, else the one saved by 'plextool server use',
+    else the default on this machine. args.base_url is set to the address that worked.
+    """
     args.token, source = resolve_token(args)
+    url = args.base_url or os.environ.get(URL_ENV)
     try:
-        return PlexServer(args.base_url, args.token)
+        if url:
+            plex = PlexServer(url, args.token)
+        else:
+            from . import server  # imported here because server itself uses this module
+            saved = server.load_saved()
+            plex = server.connect_saved(saved, args.token) if saved else PlexServer(DEFAULT_URL, args.token)
     except Unauthorized:
         hint = SIGN_IN_AGAIN if source == "saved login" else "Check that token, or use 'plextool auth login'."
         raise PlexToolError(f"The Plex server rejected the token from {source} (401). {hint}") from None
     except RequestException as e:
-        raise PlexToolError(f"Could not reach {args.base_url}: {e}") from None
+        raise PlexToolError(f"Could not reach {url or DEFAULT_URL}: {e}") from None
+    args.base_url = plex._baseurl
+    return plex
 
 
 def write_json(path: str, data: dict) -> TextIO:
