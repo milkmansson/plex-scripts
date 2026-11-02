@@ -40,7 +40,7 @@ Typical jobs:
   to a file and recreates them on the same or another server.
 - **Get subtitles.** [`plextool subs`](https://github.com/milkmansson/plextool/blob/main/plextool/subs.md) extracts the subtitle tracks inside MKV and MP4
   files, saves subtitles that Plex downloaded on demand next to the video, and searches Plex's
-  subtitle providers for a language such as Swedish and downloads one.
+  subtitle providers for a language and downloads one.
 - **Script Plex.** Reports can print JSON, and exports can go through a pipe, so the output
   feeds other tools.
 
@@ -71,9 +71,12 @@ The `plextool` commands that change anything do a dry run unless you pass
 
 ## Quick start
 
-From a checkout:
+Download the code and install it. This needs `git` and `python` installed as a prerequisite:
 
 ```console
+$ git clone https://github.com/milkmansson/plextool.git
+$ cd plextool
+$ python3 -m venv .venv && source .venv/bin/activate   # optional: keeps plextool's packages separate
 $ pip install '.[qr]'               # '[qr]' adds a QR code to the sign-in; leave it off if you don't want one
 $ plextool auth login               # open the link it prints (or scan the QR code) and approve
 $ plextool server find              # servers on your Plex account and on your network
@@ -88,7 +91,7 @@ Now playing (1 session, 0 transcoding)
   alice: Some Movie (2020) [playing] on Living Room TV
 ```
 
-To get Swedish subtitles for that movie from the subtitle providers Plex searches:
+To get, say, Swedish subtitles for that movie from the subtitle providers Plex searches:
 
 ```console
 $ plextool subs fetch -t "Some Movie" --lang sv --list               # see what is available; nothing is downloaded
@@ -130,6 +133,8 @@ FFmpeg (`ffmpeg`, `ffprobe`) for MP4 files. You only need the ones for the file 
 you use.
 
 ```console
+$ git clone https://github.com/milkmansson/plextool.git     # skip if you already have the code
+$ cd plextool
 $ pip install .            # installs the `plextool` command
 $ plextool --help
 ```
