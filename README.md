@@ -26,6 +26,42 @@ too risky to edit by hand.
 The `plextool` commands that change anything do a dry run unless you pass
 `--commit`. Deleting files (`dupes --keep`) also asks you to type `DELETE`.
 
+## Quick start
+
+From a checkout, with Python 3.9 or later:
+
+```console
+$ pip install '.[qr]'               # '[qr]' adds a QR code to the sign-in; leave it off if you don't want one
+$ plextool auth login               # open the link it prints (or scan the QR code) and approve
+$ plextool server find              # servers on your Plex account and on your network
+$ plextool server use "My Server"   # one of the names from the list
+$ plextool status                   # libraries, and who is watching what right now
+```
+
+`status` ends with what is playing:
+
+```console
+Now playing (1 session, 0 transcoding)
+  alice: Some Movie (2020) [playing] on Living Room TV
+```
+
+To get Swedish subtitles for that movie from the subtitle providers Plex searches:
+
+```console
+$ plextool subs fetch -t "Some Movie" --lang sv --list               # see what is available; nothing is downloaded
+$ plextool subs fetch -t "Some Movie" --lang sv --choose --commit    # pick one; Plex downloads it
+```
+
+The subtitle is added to the movie in Plex, so pick it from the player's subtitle
+menu. Add `--export` to also save it as a file beside the video; for that, this
+machine must be able to read the media files (see `--map` in the
+[`subs` page](plextool/subs.md)). For a TV show, `-t "Some Show"` covers every
+episode, which is a search for each one, so start with `--list`.
+
+If the server is on the machine you are typing on, skip `server find` and `server use`:
+plextool tries `http://localhost:32400` by default. Without internet access, see
+[working offline](plextool/server.md#working-offline-or-directly-against-the-server).
+
 ## Getting help
 
 Every command explains itself, with options and examples:

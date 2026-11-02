@@ -390,8 +390,8 @@ def wipe(assume_yes: bool) -> None:
     except OSError:
         pass  # something else lives there
     print(paint("Removed.", "green") +
-          " Plex still lists this sign-in under Authorized Devices. To revoke it, use "
-          "'plextool auth revoke --this --commit' (before wiping next time) or remove it in your Plex account.")
+          " If you haven't revoked this sign-in, Plex still lists it under Authorized Devices: use "
+          "'plextool auth revoke --this --commit' before wiping next time, or remove it in your Plex account.")
 
 
 def status() -> None:
