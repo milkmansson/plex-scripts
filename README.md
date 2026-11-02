@@ -10,7 +10,8 @@ too risky to edit by hand.
 
 | Command | What it does |
 | --- | --- |
-| [`plextool auth`](plextool/auth.md) | Sign in to Plex with a link or QR code, get a short-lived token, and wipe the saved login and keys. |
+| [`plextool auth`](plextool/auth.md) | Sign in to Plex with a link or QR code, list and remove old sign-ins from your account, and wipe the saved login and keys. |
+| [`plextool server`](plextool/server.md) | Find servers on your account or network and choose the one to use. Covers working offline or directly against the server. |
 | [`plextool status`](plextool/status.md) | Server version, library sizes, who is watching what. |
 | [`plextool scan`](plextool/scan.md) | Scan libraries or a single folder, refresh metadata, empty trash, optimize. |
 | [`plextool recent`](plextool/recent.md) | Change "added at" dates to reorder Recently Added. Works on movies, shows, seasons and episodes. |
@@ -59,13 +60,18 @@ approve in a browser:
 
 ```console
 $ plextool auth login
-$ export PLEX_URL=http://myserver:32400     # optional, default http://localhost:32400
+$ plextool server find                       # skip if the server is on this machine
+$ plextool server use "My Server"            # or: server use http://myserver:32400
 ```
 
-That saves a short-lived token, and the signing key that renews it, in
-`~/.config/plextool/` (readable only by you). [`plextool auth`](plextool/auth.md)
-explains exactly what is kept, how to wipe it with `plextool auth wipe`, and the
-`--type token` alternative.
+Without a saved choice, plextool uses `http://localhost:32400`, or `$PLEX_URL`
+or `--base-url` if given. [`plextool server`](plextool/server.md) explains the
+options, including working with no internet or directly on the server's machine.
+
+That saves a Plex token in `~/.config/plextool/` (readable only by you).
+[`plextool auth`](plextool/auth.md) explains exactly what is kept, how to wipe it
+with `plextool auth wipe`, and `--type jwt`, a short-lived token that plex.tv
+accepts but Plex Media Server doesn't yet.
 
 If you would rather supply your own [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/),
 plextool looks for one in this order: `--token`, `--token-file FILE` (`-` for
