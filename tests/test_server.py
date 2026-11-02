@@ -279,3 +279,44 @@ def test_a_rejected_flag_token_does_not_blame_the_saved_login(config):
             pytest.raises(PlexToolError) as info:
         common.connect(NS(token="x", token_file=None, base_url=None))
     assert "revoked" not in str(info.value) and "Check that token" in str(info.value)
+
+
+def test_pick_row_prefers_first_working_address_and_server_token():
+    dead = (False, "no response (timed out)")
+    ok, bad = (True, "ok"), (False, "rejected the token (401)")
+    local = {"kind": "local", "server_token": dead, "login_token": dead}
+    remote = {"kind": "remote", "server_token": ok, "login_token": bad}
+    relay = {"kind": "relay", "server_token": ok, "login_token": ok}
+    assert server.pick_row([local, remote, relay], "srv", "login") == (remote, "srv")
+    only_login = {"kind": "remote", "server_token": bad, "login_token": ok}
+    assert server.pick_row([local, only_login], "srv", "login") == (only_login, "login")
+    assert server.pick_row([local], "srv", "login") == (None, None)
+
+
+def test_connect_records_the_kind_of_address_used(config):
+    res = resource(url="http://a:32400")
+    saved = {"kind": "account", "name": "Home", "machine_id": "m1"}
+    server.save(saved)
+    with mock.patch.object(server, "account_servers", return_value=[res]), \
+            mock.patch.object(server, "probe", return_value=(True, "ok")), \
+            mock.patch.object(server, "PlexServer", side_effect=lambda u, t, **k: fake_plex(u)):
+        server.connect_saved(saved, "tok")
+    assert server.load_saved()["last_kind"] == "local"
+    assert server.load_saved()["last_url"] == "http://a:32400"
+
+
+def test_test_command_marks_the_address_that_would_be_used(config, capsys):
+    res = resource(url="https://10-0-0-5.abc.plex.direct:32400")
+    args = build_parser().parse_args(["server", "test", "Home"])
+    with mock.patch.object(server, "account_servers", return_value=[res]), \
+            mock.patch.object(server, "probe", return_value=(True, "ok")):
+        args.run(args)
+    assert "<- used" in capsys.readouterr().out
+
+
+def test_show_displays_the_kind_of_the_last_address(config, capsys):
+    server.save({"kind": "account", "name": "Home", "machine_id": "m1",
+                 "last_url": "https://x:32400", "last_kind": "relay"})
+    args = build_parser().parse_args(["server", "show"])
+    args.run(args)
+    assert "relay https://x:32400" in capsys.readouterr().out

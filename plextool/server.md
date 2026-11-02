@@ -43,6 +43,32 @@ In this order, the first one found wins:
 3. The server saved with `server use`.
 4. `http://localhost:32400`.
 
+## Which address is used
+
+A server chosen by name has several addresses (see `server find`). Each time a
+command runs, plextool tests all of them at once with a real request and uses
+the first one that answers, in Plex's fixed order:
+
+1. **local**: the server's address on your own network. Fastest, and traffic
+   stays inside your network.
+2. **remote**: the server's public address, through your router.
+3. **relay**: Plex's relay service. It always works but is slow and
+   bandwidth-limited, so it is only used when nothing else answers.
+
+Within each kind, HTTPS is tried before HTTP and IPv4 before IPv6. For each
+address the server's own access token is tried first, then your login token. On
+a server shared with you (not one you own), Plex's local addresses are skipped,
+so only remote and relay are considered.
+
+Because every address is tested before one is chosen, an address that doesn't
+answer (a local address when you are away from home) can add a few seconds
+to each command while it times out.
+
+`plextool server test` shows the result, with the address that would be used
+marked `<- used`. `plextool server show` shows the address, and whether it was
+local, remote or relay, from the last time a command connected. To skip all of
+this and use one fixed address, run `plextool server use http://HOST:32400`.
+
 ## Commands
 
 | Command | What it does |

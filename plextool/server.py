@@ -183,6 +183,17 @@ def advise(rows: list[dict]) -> str:
     return ""
 
 
+def pick_row(rows: list[dict], resource_token: str, login_token: str):
+    """The address to use: the first in Plex's order that accepts the server's own token, else the
+    login token. Returns (row, token) or (None, None)."""
+    for row in rows:
+        if row["server_token"][0]:
+            return row, resource_token
+        if row["login_token"][0]:
+            return row, login_token
+    return None, None
+
+
 def check_saved(token: str) -> str | None:
     """Does the saved server accept this token? 'ok', a warning to show, or None if no server is saved."""
     saved = load_saved()
@@ -197,12 +208,13 @@ def check_saved(token: str) -> str | None:
     return "ok"
 
 
-def format_rows(rows: list[dict]) -> list[str]:
+def format_rows(rows: list[dict], used: dict | None = None) -> list[str]:
     def cell(result):
         return paint(result[1], "green" if result[0] else "red")
     width = max((len(r["host"]) for r in rows), default=0) + 2
     return [f"  {r['kind']:<7}{r['host']:<{width}}server token: {cell(r['server_token'])}   "
-            f"login token: {cell(r['login_token'])}" for r in rows]
+            f"login token: {cell(r['login_token'])}"
+            + (paint("   <- used", "green") if used is not None and r is used else "") for r in rows]
 
 
 def connect_saved(saved: dict, token: str) -> PlexServer:
@@ -225,14 +237,8 @@ def connect_saved(saved: dict, token: str) -> PlexServer:
         raise PlexToolError(f"'{saved.get('name')}' is no longer on your Plex account. "
                             "Pick another with 'plextool server find' and 'plextool server use'.")
     rows = probe_resource(resource, token)
-    plex = None
-    for row in rows:
-        for ok, use_token in ((row["server_token"][0], resource.accessToken), (row["login_token"][0], token)):
-            if ok:
-                plex = PlexServer(row["uri"], use_token, timeout=CONNECT_TIMEOUT)
-                break
-        if plex:
-            break
+    row, use_token = pick_row(rows, resource.accessToken, token)
+    plex = PlexServer(row["uri"], use_token, timeout=CONNECT_TIMEOUT) if row else None
     if not plex:
         if last_url:
             return PlexServer(last_url, token)
@@ -241,8 +247,8 @@ def connect_saved(saved: dict, token: str) -> PlexServer:
             lines.append(advice)
         lines.append("'plextool server test' repeats this check.")
         raise PlexToolError("\n".join(lines))
-    if plex._baseurl != last_url:
-        save({**saved, "last_url": plex._baseurl})
+    if plex._baseurl != last_url or saved.get("last_kind") != row["kind"]:
+        save({**saved, "last_url": plex._baseurl, "last_kind": row["kind"]})
     return plex
 
 
@@ -337,8 +343,9 @@ def run_test(args: argparse.Namespace) -> int:
     if not matches:
         raise PlexToolError(f"No server called '{name}' on your account.")
     rows = probe_resource(matches[0], token)
+    used, _ = pick_row(rows, matches[0].accessToken, token)
     print(paint(matches[0].name, "bold"))
-    print("\n".join(format_rows(rows)))
+    print("\n".join(format_rows(rows, used)))
     if advice := advise(rows):
         print(f"\n{advice}")
     return 0 if any(r["server_token"][0] for r in rows) else 1
@@ -353,7 +360,8 @@ def run_show(args: argparse.Namespace) -> int:
     elif saved:
         print(f"Saved server  {saved.get('name')} (looked up on your Plex account)")
         if saved.get("last_url"):
-            print(f"Last address  {saved['last_url']}")
+            kind = f"{saved['last_kind']} " if saved.get("last_kind") else ""
+            print(f"Last address  {kind}{saved['last_url']}")
     else:
         print("Saved server  none")
     if os.environ.get(URL_ENV):
