@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from types import SimpleNamespace as NS
 
 import pytest
+from plexapi.exceptions import NotFound
 
 from plextool import audit, dupes, playlists, resume, stale, watched
 from plextool.cli import build_parser
@@ -39,8 +40,72 @@ def test_build_rows_groups_episodes_by_show():
              episode("Other", 1, 50)]
     rows = {r["name"]: r for r in stale.build_rows(items, "show")}
     assert rows["Show"] == {"name": "Show", "size": 300, "added": old, "last_viewed": new,
-                            "views": 3, "count": 2}
+                            "views": 3, "count": 2, "watchers": {"owner": new}}
     assert rows["Other"]["last_viewed"] is None
+
+
+def test_add_user_views_counts_other_users():
+    old, mid, new = datetime(2020, 1, 1), datetime(2022, 1, 1), datetime(2024, 1, 1)
+    rows = stale.build_rows([episode("Show", 1, 100, views=1, last=old),
+                             episode("Quiet", 1, 50), episode("Mine", 1, 70)], "show")
+    theirs = [episode("Show", 1, views=2, last=new), episode("Quiet", 1, views=1, last=mid),
+              episode("Hidden", 1, views=4, last=new), episode("Mine", 1, views=0)]
+    stale.add_user_views(rows, theirs, "show", "alice")
+    by_name = {r["name"]: r for r in rows}
+    assert by_name["Show"]["views"] == 3
+    assert by_name["Show"]["last_viewed"] == new
+    assert by_name["Show"]["watchers"] == {"owner": old, "alice": new}
+    assert stale.latest_watcher(by_name["Show"]) == "alice"
+    assert by_name["Quiet"]["views"] == 1 and by_name["Quiet"]["watchers"] == {"alice": mid}
+    assert by_name["Mine"]["views"] == 0 and by_name["Mine"]["watchers"] == {}
+    assert "Hidden" not in by_name
+    kept = stale.filter_rows(rows, NOW, unwatched=True)
+    assert [r["name"] for r in kept] == ["Mine"]
+
+
+def test_note_watcher_keeps_latest_and_handles_missing_dates():
+    row = {"watchers": {}}
+    stale.note_watcher(row, "bob", None)
+    assert row["watchers"] == {"bob": None} and stale.latest_watcher(row) is None
+    stale.note_watcher(row, "bob", datetime(2024, 1, 1))
+    stale.note_watcher(row, "bob", datetime(2023, 1, 1))
+    assert row["watchers"]["bob"] == datetime(2024, 1, 1)
+
+
+class FakeServer:
+    """Just enough of a PlexServer for stale.run(): sections of items by library title."""
+
+    def __init__(self, items_by_title):
+        self.items_by_title = items_by_title
+        self.library = self
+
+    def section(self, title):
+        if title not in self.items_by_title:
+            raise NotFound(title)
+        items = self.items_by_title[title]
+        return NS(title=title, TYPE="show", search=lambda **kw: items)
+
+
+def test_stale_run_counts_other_users(monkeypatch, capsys):
+    when = datetime(2024, 1, 1)
+    owner_items = [episode("Show", 1, 100), episode("Other", 1, 50)]
+    owner = FakeServer({"TV": owner_items})
+    alice = FakeServer({"TV": [episode("Show", 1, views=1, last=when)]})
+    bob = FakeServer({})  # TV is not shared with bob
+    section = NS(title="TV", TYPE="show", search=lambda **kw: owner_items)
+    monkeypatch.setattr(stale, "connect", lambda args: owner)
+    monkeypatch.setattr(stale, "pick_sections", lambda plex, names: [section])
+    monkeypatch.setattr(stale, "shared_users", lambda args, plex: ["alice", "bob"])
+    monkeypatch.setattr(stale, "user_server",
+                        lambda args, plex, name: {"alice": alice, "bob": bob, "me": owner}[name])
+    args = build_parser().parse_args(["stale", "--unwatched", "--all-users", "--user", "me", "--json"])
+    assert stale.run(args) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert [r["name"] for r in out["TV"]] == ["Other"]
+    args = build_parser().parse_args(["stale", "--all-users", "--json"])
+    assert stale.run(args) == 0
+    shown = {r["name"]: r for r in json.loads(capsys.readouterr().out)["TV"]}
+    assert shown["Show"]["watchers"] == {"alice": when.isoformat()}
 
 
 def test_filter_rows():

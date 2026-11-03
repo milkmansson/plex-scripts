@@ -5,10 +5,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime
 
-from plexapi.exceptions import NotFound
-from plexapi.myplex import MyPlexAccount
 from plexapi.server import PlexServer
-from requests.exceptions import RequestException
 
 from .common import (
     SECTION_LEVELS,
@@ -22,37 +19,13 @@ from .common import (
     pick_sections,
     plural,
     read_json,
+    user_server,
     write_json,
 )
 
 # Each kind of watched item: (name in files and flags, library type, item type)
 KINDS = (("movies", "movie", "movie"), ("episodes", "show", "episode"))
 FORMAT_VERSION = 1
-
-
-def user_server(args: argparse.Namespace, admin: PlexServer, name: str | None) -> PlexServer:
-    """Open the server as the named user (the owner if name is None or is the owner)."""
-    if not name:
-        return admin
-    try:
-        account = MyPlexAccount(token=args.token)
-    except RequestException as e:
-        raise PlexToolError(f"Could not reach plex.tv: {e}") from None
-    own_names = {n.lower() for n in (account.username, account.email, account.title) if n}
-    if name.lower() in own_names:
-        return admin
-    try:
-        user = account.user(name)
-    except NotFound:
-        raise PlexToolError(f"'{name}' is not a user on this account.") from None
-    token = user.get_token(admin.machineIdentifier)
-    if not token:
-        raise PlexToolError(
-            f"Could not get an access token for '{name}'. Is this server shared with them?")
-    try:
-        return PlexServer(args.base_url, token)
-    except RequestException as e:
-        raise PlexToolError(f"Could not connect as '{name}': {e}") from None
 
 
 def wanted_kinds(args: argparse.Namespace) -> list[tuple[str, str, str]]:

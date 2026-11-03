@@ -15,7 +15,7 @@ On this network
   My Server  http://192.168.1.20:32400  1.x.x
 
 $ plextool server use "My Server"
-Using My Server from your Plex account. Its address is looked up each time, so it can change.
+Using My Server from your Plex account. Only the name is saved: each time you run a command, plextool asks plex.tv for the server's current address, so a changed IP is followed.
 ```
 
 ## Three ways to choose

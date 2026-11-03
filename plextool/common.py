@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TextIO
 
 from plexapi.exceptions import NotFound, Unauthorized
+from plexapi.myplex import MyPlexAccount
 from plexapi.server import PlexServer
 from requests.exceptions import RequestException
 
@@ -201,6 +202,43 @@ def connect(args: argparse.Namespace) -> PlexServer:
         raise PlexToolError(f"Could not reach {url or DEFAULT_URL}: {e}") from None
     args.base_url = plex._baseurl
     return plex
+
+
+def plex_account(args: argparse.Namespace) -> MyPlexAccount:
+    """The plex.tv account behind args.token (set by connect())."""
+    try:
+        return MyPlexAccount(token=args.token)
+    except RequestException as e:
+        raise PlexToolError(f"Could not reach plex.tv: {e}") from None
+
+
+def user_server(args: argparse.Namespace, admin: PlexServer, name: str | None) -> PlexServer:
+    """Open the server as the named user (the owner if name is None or is the owner)."""
+    if not name:
+        return admin
+    account = plex_account(args)
+    own_names = {n.lower() for n in (account.username, account.email, account.title) if n}
+    if name.lower() in own_names:
+        return admin
+    try:
+        user = account.user(name)
+    except NotFound:
+        raise PlexToolError(f"'{name}' is not a user on this account.") from None
+    token = user.get_token(admin.machineIdentifier)
+    if not token:
+        raise PlexToolError(
+            f"Could not get an access token for '{name}'. Is this server shared with them?")
+    try:
+        return PlexServer(args.base_url, token)
+    except RequestException as e:
+        raise PlexToolError(f"Could not connect as '{name}': {e}") from None
+
+
+def shared_users(args: argparse.Namespace, admin: PlexServer) -> list[str]:
+    """Names of the users this server is shared with (not the owner), as user_server() takes them."""
+    users = plex_account(args).users()
+    return [u.title or u.username for u in users
+            if any(s.machineIdentifier == admin.machineIdentifier and not s.pending for s in u.servers)]
 
 
 def write_json(path: str, data: dict) -> TextIO:
