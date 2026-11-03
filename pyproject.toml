@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "plextool"
-version = "3.2.0"
+version = "3.3.0"
 description = "Maintenance helpers for a Plex Media Server"
 keywords = ["plex", "plex-media-server", "plexapi", "recently-added", "duplicates", "watched", "subtitles", "cli"]
 readme = { file = "README.md", content-type = "text/markdown" }

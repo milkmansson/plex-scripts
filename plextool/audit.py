@@ -19,8 +19,10 @@ from .common import (
     scan,
     working,
 )
+from .scan import wait_for_scans
 
 LOW_RES = {"sd", "480", "576", "360", "240"}
+MISSING_LIMIT = 25   # percent of a library; more than this missing usually means a drive is not mounted
 UNMATCHED_PREFIXES = ("local://", "com.plexapp.agents.none")
 
 
@@ -110,10 +112,56 @@ def add_parser(subparsers) -> None:
     parser.add_argument("--lang", help="3-letter language code, as Plex shows it, for no-subs / no-audio, eg eng")
     parser.add_argument("-n", "--limit", type=int, metavar="N", help="show at most N problems per check")
     parser.add_argument("--json", action="store_true", help="print JSON instead of text")
+    parser.add_argument("--clean-missing", action="store_true",
+                        help="remove items whose files are gone: scan the library so Plex trashes them, then empty "
+                             "the trash (a dry run unless --commit)")
+    parser.add_argument("--commit", action="store_true", help="with --clean-missing, actually do it")
+    parser.add_argument("--force", action="store_true",
+                        help=f"with --clean-missing, go ahead even if over {MISSING_LIMIT}%% of a library is missing")
     parser.set_defaults(run=run)
 
 
+def clean_missing(plex, args: argparse.Namespace) -> int:
+    """Remove items whose files are gone, the way Plex does it: scan so they are trashed, then empty the trash."""
+    todo = []
+    for section in pick_sections(plex, args.library):
+        items = scan(section, libtype=FILE_LEVEL[section.TYPE])
+        missing = run_check("missing-files", items, None)
+        percent = 100 * len(missing) / len(items) if items else 0
+        print(paint(f"\n{section.title}: {plural(len(missing), 'file item')} missing of {len(items)} "
+                    f"({percent:.0f}%)", "cyan"))
+        for problem in missing[:args.limit or 15]:
+            print(f"  {problem['item']}: {problem['reason']}")
+        if not missing:
+            continue
+        if percent > MISSING_LIMIT and not args.force:
+            raise PlexToolError(
+                f"{percent:.0f}% of '{section.title}' is missing, which usually means a drive or share is not mounted "
+                f"and not that the files were deleted. Nothing was changed. Check the storage, or pass --force "
+                f"(the limit is {MISSING_LIMIT}%).")
+        todo.append(section)
+    if not todo:
+        print("\nNothing to clean.")
+        return 0
+    names = ", ".join(s.title for s in todo)
+    print(f"\nTo clean: scan {names}, then empty the trash of each. Emptying the trash also removes anything "
+          "already in it. Watch history for the removed items is lost.")
+    if not args.commit:
+        print(paint("Dry run. Pass --commit to do it.", "yellow"))
+        return 0
+    for section in todo:
+        section.update()
+    wait_for_scans(plex, [s.title for s in todo])
+    for section in todo:
+        section.emptyTrash()
+        print(f"Emptied trash: {section.title}")
+    print("Run 'plextool audit -c missing-files' again to check.")
+    return 0
+
+
 def run(args: argparse.Namespace) -> int:
+    if args.clean_missing:
+        return clean_missing(connect(args), args)
     names = args.check or [n for n, (_, _, needs_lang, _) in CHECKS.items() if not needs_lang]
     for name in names:
         if CHECKS[name][2] and not args.lang:

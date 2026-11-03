@@ -23,6 +23,10 @@ plextool is a CLI toolkit for looking after a Plex Media Server: fixing things P
   ```
 - **Manage who has access.** [`plextool users`](https://plextool.readthedocs.io/en/latest/commands/users.html) lists who can use the server, invites people, changes
   what they can see and removes them, with a preview of exactly what would be granted or lost.
+- **Look after the server itself.** [`plextool settings`](https://plextool.readthedocs.io/en/latest/commands/settings.html) searches and changes the server's settings,
+  [`plextool sessions`](https://plextool.readthedocs.io/en/latest/commands/sessions.html) shows what is playing and stops streams, and
+  [`plextool labels`](https://plextool.readthedocs.io/en/latest/commands/labels.html) adds and removes labels in bulk. `plextool audit --clean-missing` removes items whose
+  files are gone, the way Plex does it, with a guard against an unmounted drive.
 - **Tidy the apps authorised on the account.** [`plextool devices`](https://plextool.readthedocs.io/en/latest/commands/devices.html) lists every app and device signed in
   to the Plex account and removes the old ones by ID, age, app or name. It never removes a Plex Media Server.
 - **Give another tool its own token.** [`plextool token`](https://plextool.readthedocs.io/en/latest/commands/token.html) makes, lists and revokes tokens for a program such as a Plex MCP
@@ -52,10 +56,9 @@ plextool is a CLI toolkit for looking after a Plex Media Server: fixing things P
   feeds other tools.
 
 > [!IMPORTANT]
-> Everything that changes the server is a preview until `--commit` is passed. plextool uses Plex's API and
-> never edits the Plex database file. It signs in through a browser with
-> [`plextool auth`](https://plextool.readthedocs.io/en/latest/commands/auth.html), and works against a server on the same machine, across the
-> internet, or directly with no internet access ([`plextool server`](https://plextool.readthedocs.io/en/latest/commands/server.html)).
+> Everything that changes the server is a preview until `--commit` is passed. 
+
+plextool uses Plex's API and never edits the Plex database file. It signs in through a browser with [`plextool auth`](https://plextool.readthedocs.io/en/latest/commands/auth.html), and works against a server on the same machine, across the internet, or directly with no internet access ([`plextool server`](https://plextool.readthedocs.io/en/latest/commands/server.html)).
 
 ## Commands
 
@@ -63,6 +66,10 @@ plextool is a CLI toolkit for looking after a Plex Media Server: fixing things P
 | --- | --- |
 | [`plextool auth`](https://plextool.readthedocs.io/en/latest/commands/auth.html) | Sign in to Plex with a link or QR code, list and remove old sign-ins from the account, and wipe the saved login and keys. |
 | [`plextool users`](https://plextool.readthedocs.io/en/latest/commands/users.html) | See who has access to the server, and invite, change and remove people: libraries, restrictions, downloads, invitations. Previews until `--commit`. |
+| [`plextool completion`](https://plextool.readthedocs.io/en/latest/commands/completion.html) | Print a Tab completion script for bash or zsh, built from the commands as they are now. |
+| [`plextool settings`](https://plextool.readthedocs.io/en/latest/commands/settings.html) | List, search and change the Plex server's settings. |
+| [`plextool sessions`](https://plextool.readthedocs.io/en/latest/commands/sessions.html) | List what is playing and stop streams. |
+| [`plextool labels`](https://plextool.readthedocs.io/en/latest/commands/labels.html) | Add, remove and count labels in bulk. |
 | [`plextool devices`](https://plextool.readthedocs.io/en/latest/commands/devices.html) | List the apps and devices authorised on the Plex account, and sign out the ones no longer wanted, by ID or by age, app or name. Plex Media Servers are never removed. |
 | [`plextool token`](https://plextool.readthedocs.io/en/latest/commands/token.html) | Make, list and revoke tokens for other tools (such as an MCP server) without sharing the saved login: a separate full-access token that can be revoked on its own, or a shared user's token. Also shows who has access to the server. |
 | [`plextool server`](https://plextool.readthedocs.io/en/latest/commands/server.html) | Find servers on the account or network and choose the one to use. Covers working offline or directly against the server. |
@@ -171,10 +178,53 @@ version.
 FFmpeg (`ffmpeg`, `ffprobe`) for MP4 files. Only the ones for the file types
 in use are needed.
 
+[pipx](https://pipx.pypa.io/stable/) is the usual way to install a command line tool written in Python. It gives
+plextool its own environment, so its packages never clash with anything else, and puts the `plextool` command on the PATH:
+
+```console
+$ pipx install 'plextool[qr]'      # '[qr]' adds a QR code to the sign-in; leave it off if no QR code is wanted
+$ plextool --help
+```
+
+If the default Python is older than 3.10, point pipx at a newer one with `pipx install --python python3.12 'plextool[qr]'`.
+pipx is packaged for many distributions, or can be installed with `python3 -m pip install --user pipx`.
+
+Plain pip works as well:
+
 ```console
 $ pip install plextool     # installs the `plextool` command
 $ plextool --help
 ```
+
+### Upgrading
+
+```console
+$ pipx upgrade plextool
+$ pip install --upgrade plextool
+```
+
+Just after a release, pip may still show the old list of versions for a few minutes, because it caches it.
+Adding `--no-cache-dir` skips the cache.
+
+### If the install fails
+
+- pip reports that no matching version exists, or that the package needs a different Python: the Python behind that
+  `pip` is older than 3.10. `python3 --version` shows it. Install a newer Python and use it, either with pipx as above
+  or as `python3.12 -m pip install --user plextool`.
+- A bare `pip` can belong to a different Python from the one expected. Running pip as `python3.12 -m pip ...` removes
+  the doubt, and `python3.12 -m pip --version` shows which one it is.
+- `plextool: command not found` after a `--user` or pipx install means `~/.local/bin` is not on the PATH. `pipx ensurepath`
+  adds it, and a new shell picks it up.
+
+### Tab completion
+
+```console
+$ eval "$(plextool completion bash)"     # bash; add the line to ~/.bashrc to keep it
+$ eval "$(plextool completion zsh)"      # zsh, in ~/.zshrc
+```
+
+This completes commands, subcommands, options and fixed choices such as `--type`. See
+[`plextool completion`](https://plextool.readthedocs.io/en/latest/commands/completion.html).
 
 To install from a checkout instead (this needs `git`):
 

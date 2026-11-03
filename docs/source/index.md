@@ -28,6 +28,7 @@ commands/auth
 commands/token
 commands/devices
 commands/users
+commands/completion
 commands/server
 commands/status
 commands/info
@@ -40,4 +41,7 @@ commands/watched
 commands/resume
 commands/playlists
 commands/subs
+commands/labels
+commands/settings
+commands/sessions
 ```

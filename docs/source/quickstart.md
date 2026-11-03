@@ -8,10 +8,16 @@ Plex, choose a server, then start using it.
 This needs `python` (3.10 or later; 3.12 is what plextool is tested on).
 
 ```console
-$ python3 -m venv .venv && source .venv/bin/activate   # optional: keeps plextool's packages separate
-$ pip install 'plextool[qr]'
+$ pipx install 'plextool[qr]'
 $ plextool --help
 ```
+
+[pipx](https://pipx.pypa.io/stable/) gives plextool its own environment and puts the `plextool` command on the PATH.
+If the default Python is older than 3.10, use `pipx install --python python3.12 'plextool[qr]'`. Plain pip works too,
+inside a virtual environment if one is wanted: `pip install 'plextool[qr]'`.
+
+Upgrading is `pipx upgrade plextool` (or `pip install --upgrade plextool`). If the install fails, or `plextool` is
+not found afterwards, the [README](https://github.com/milkmansson/plextool#if-the-install-fails) lists the usual causes.
 
 To install from the source instead (this also needs `git`):
 
@@ -106,4 +112,5 @@ start with `--list`.
 ## Next
 
 Pick a command from the list on the left, or see the table in the
-[README](https://github.com/milkmansson/plextool#commands).
+[README](https://github.com/milkmansson/plextool#commands). Tab completion for commands and options is set up with
+[`plextool completion`](commands/completion.md).

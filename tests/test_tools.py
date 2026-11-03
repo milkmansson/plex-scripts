@@ -1,5 +1,7 @@
 import io
 import json
+import shutil
+import subprocess
 import sys
 from argparse import ArgumentTypeError
 from datetime import datetime, timedelta
@@ -8,7 +10,20 @@ from types import SimpleNamespace as NS
 import pytest
 from plexapi.exceptions import NotFound
 
-from plextool import audit, common, devices, dupes, info, playlists, resume, stale, tokens, users, watched
+from plextool import (
+    audit,
+    common,
+    completion,
+    devices,
+    dupes,
+    info,
+    playlists,
+    resume,
+    stale,
+    tokens,
+    users,
+    watched,
+)
 from plextool.cli import build_parser
 from plextool.common import PlexToolError, confirm_typed, item_size, read_json, working, write_json
 
@@ -892,6 +907,45 @@ def test_users_list_invites_and_cancel(monkeypatch, config, capsys):
     assert account.calls == [("cancel", "bob@example.com")]
     with pytest.raises(PlexToolError, match="No waiting invitation"):
         run_users("cancel", "zed")
+
+
+# --- completion ----------------------------------------------------------
+
+def test_completion_walks_every_command_and_option():
+    found = completion.walk(build_parser())
+    assert {"auth", "token", "users", "completion"} <= set(found[()]["subs"])
+    assert found[("token",)]["subs"] == ["new", "list", "revoke"]
+    new = found[("token", "new")]
+    assert "--rw" in new["opts"] and "--rw" not in new["value_opts"]            # a switch takes no value
+    assert "--file" in new["value_opts"] and "--name" in new["value_opts"]
+    assert found[("auth", "login")]["choices"]["--type"] == ["jwt", "token"]
+    assert found[("users", "invite")]["choices"]["--downloads"] == ["yes", "no"]
+
+
+def test_completion_script_for_each_shell(capsys):
+    assert completion.run(NS(shell="zsh")) == 0
+    out = capsys.readouterr().out
+    assert "bashcompinit" in out and "complete -o default -F _plextool plextool" in out
+    bash = completion.script("bash", build_parser())
+    assert "bashcompinit" not in bash and '"token") echo "new list revoke"' in bash
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+def test_completion_works_in_bash(tmp_path):
+    script = tmp_path / "plextool.bash"
+    script.write_text(completion.script("bash", build_parser()))
+    driver = tmp_path / "try.sh"
+    driver.write_text(f'''source {script}
+try() {{ COMP_WORDS=("$@"); COMP_CWORD=$(( $# - 1 )); COMPREPLY=(); _plextool; echo "${{COMPREPLY[*]}}"; }}
+try plextool to
+try plextool token ""
+try plextool token new --r
+try plextool token new --rw --file ""
+try plextool auth login --type ""
+try plextool stale --library Movies --un
+''')
+    done = subprocess.run(["bash", str(driver)], capture_output=True, text=True, check=True)
+    assert done.stdout.splitlines() == ["token", "new list revoke", "--rw --ro", "", "jwt token", "--unwatched"]
 
 
 # --- progress ------------------------------------------------------------
