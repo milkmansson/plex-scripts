@@ -18,12 +18,15 @@ from .common import (
     connect,
     describe,
     item_size,
+    no_autoreload,
     paint,
     pick_sections,
     plural,
     pretty_size,
+    scan,
     shared_users,
     user_server,
+    working,
 )
 
 OWNER = "owner"
@@ -155,7 +158,7 @@ def run(args: argparse.Namespace) -> int:
     sections = pick_sections(plex, args.library)
     rows_by_section = {}
     for section in sections:
-        items = section.search(libtype=FILE_LEVEL[section.TYPE])
+        items = scan(section, autoreload=False, libtype=FILE_LEVEL[section.TYPE])
         rows_by_section[section.title] = build_rows(items, section.TYPE)
 
     users = shared_users(args, plex) if args.all_users else []
@@ -176,7 +179,8 @@ def run(args: argparse.Namespace) -> int:
                 theirs = user_plex.library.section(section.title)
             except NotFound:
                 continue  # this library is not shared with them
-            items = theirs.search(libtype=FILE_LEVEL[section.TYPE], unwatched=False)
+            with working(f"reading what {name} has watched in {section.title}"):
+                items = no_autoreload(theirs.search(libtype=FILE_LEVEL[section.TYPE], unwatched=False))
             add_user_views(rows_by_section[section.title], items, section.TYPE, name)
 
     report = {}

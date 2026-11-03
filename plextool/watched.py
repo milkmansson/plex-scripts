@@ -19,6 +19,7 @@ from .common import (
     pick_sections,
     plural,
     read_json,
+    scan,
     user_server,
     write_json,
 )
@@ -41,7 +42,7 @@ def collect_watched(server: PlexServer, kinds) -> dict:
         found[label] = {}
         for section in server.library.sections():
             if section.TYPE == section_type:
-                for item in section.search(libtype=libtype, unwatched=False):
+                for item in scan(section, libtype=libtype, unwatched=False):
                     found[label][item.guid] = describe(item)
     return found
 
@@ -57,7 +58,7 @@ def apply_watched(server: PlexServer, watched: dict, kinds, commit: bool) -> int
         for section in server.library.sections():
             if section.TYPE != section_type:
                 continue
-            for item in section.search(libtype=libtype, unwatched=True):
+            for item in scan(section, libtype=libtype, unwatched=True):
                 if item.guid not in guids:
                     continue
                 if commit:

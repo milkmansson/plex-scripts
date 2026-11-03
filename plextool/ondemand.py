@@ -21,6 +21,7 @@ from .common import (
     paint,
     pick_sections,
     plural,
+    scan,
 )
 from .recent import find_by_guid
 from .subs import ISO3_TO_ISO1, lang_code, output_names
@@ -101,7 +102,7 @@ def select_files(plex, args: argparse.Namespace) -> list[tuple]:
         elif args.recent:
             items = section.recentlyAdded(maxresults=args.recent, libtype=FILE_LEVEL[section.TYPE])
         else:
-            items = section.search(libtype=FILE_LEVEL[section.TYPE])
+            items = scan(section, libtype=FILE_LEVEL[section.TYPE])
         for item in items:
             pairs += [(section, f) for f in expand_to_files(item)]
     return pairs

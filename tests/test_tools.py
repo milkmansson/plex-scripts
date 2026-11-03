@@ -8,9 +8,9 @@ from types import SimpleNamespace as NS
 import pytest
 from plexapi.exceptions import NotFound
 
-from plextool import audit, dupes, playlists, resume, stale, watched
+from plextool import audit, common, dupes, playlists, resume, stale, watched
 from plextool.cli import build_parser
-from plextool.common import PlexToolError, confirm_typed, item_size, read_json, write_json
+from plextool.common import PlexToolError, confirm_typed, item_size, read_json, working, write_json
 
 NOW = datetime(2025, 6, 1)
 
@@ -24,6 +24,77 @@ def episode(show, n, size=100, views=0, added=None, last=None):
     return NS(type="episode", title=f"E{n}", grandparentTitle=show, seasonNumber=1, episodeNumber=n,
               guid=f"plex://episode/{show}{n}", media=[NS(parts=[part(size=size)])],
               viewCount=views, addedAt=added, lastViewedAt=last)
+
+
+# --- progress ------------------------------------------------------------
+
+def test_working_is_silent_when_quick(capsys):
+    with working("reading TV"):
+        pass
+    assert capsys.readouterr().err == ""
+
+
+def test_working_reports_when_slow(monkeypatch, capsys):
+    import time
+    monkeypatch.setattr(common, "FIRST_NOTICE", 0.05)
+    monkeypatch.setattr(common, "NOTICE_EVERY", 0.05)
+    with working("checking no-subs") as progress:
+        progress.detail = "3 of 9 items"
+        time.sleep(0.2)
+    err = capsys.readouterr().err
+    assert "still checking no-subs..." in err and "(3 of 9 items)" in err
+
+
+def test_verbose_hides_tokens(monkeypatch, capsys):
+    import logging
+    monkeypatch.setattr(common, "VERBOSE", False)
+    monkeypatch.setattr(common, "_SECRETS", {"s3cret"})
+    logger = logging.getLogger("plexapi")
+    old_handlers, old_level, old_prop = list(logger.handlers), logger.level, logger.propagate
+    try:
+        common.enable_verbose()
+        logger.debug("GET http://x:32400/library/sections/1/all?type=4&X-Plex-Token=abc123&a=b")
+        logger.debug("token is s3cret here")
+    finally:
+        logger.handlers[:], logger.level, logger.propagate = old_handlers, old_level, old_prop
+    err = capsys.readouterr().err
+    assert "GET http://x:32400/library/sections/1/all?type=4&X-Plex-Token=HIDDEN&a=b" in err
+    assert "abc123" not in err and "s3cret" not in err and "token is HIDDEN here" in err
+
+
+def test_verbose_flag_is_accepted_before_and_after_the_command():
+    parser = build_parser()
+    assert parser.parse_args(["-v", "stale"]).verbose_first is True
+    assert parser.parse_args(["stale", "-v"]).verbose is True
+    assert parser.parse_args(["stale"]).verbose is False
+
+
+def test_working_prints_start_and_finish_when_verbose(monkeypatch, capsys):
+    monkeypatch.setattr(common, "VERBOSE", True)
+    with working("reading TV"):
+        pass
+    err = capsys.readouterr().err
+    assert "reading TV..." in err and "finished reading TV in" in err
+
+
+def test_scan_can_turn_off_autoreload():
+    items = [NS(_autoReload=True), NS(_autoReload=True)]
+    section = NS(title="Movies", search=lambda **kw: items)
+    assert common.scan(section, autoreload=False, libtype="movie") is items
+    assert [i._autoReload for i in items] == [False, False]
+    other = [NS(_autoReload=True)]
+    common.scan(NS(title="TV", search=lambda **kw: other), libtype="show")
+    assert other[0]._autoReload is True
+
+
+def test_describe_reply():
+    page = b'<?xml version="1.0"?><MediaContainer size="100" totalSize="5400" offset="200"><Video/></MediaContainer>'
+    assert common.describe_reply(200, page, 0.824) == "  <- 200, 100 records (201-300 of 5400), 103 B, 0.82s"
+    last = b'<MediaContainer size="1" totalSize="201" offset="200">'
+    assert "1 record (201-201 of 201)" in common.describe_reply(200, last, 0.1)
+    assert "(of 5)" in common.describe_reply(200, b'<MediaContainer size="0" totalSize="5">', 0.1)
+    assert common.describe_reply(200, b'<MediaContainer size="7">', 0.1).count("(") == 0
+    assert common.describe_reply(401, b"nope", 0.01) == "  <- 401, 4 B, 0.01s"
 
 
 # --- stale ---------------------------------------------------------------

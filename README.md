@@ -129,6 +129,20 @@ $ plextool recent --help
 $ plextool watched copy --help
 ```
 
+To see what plextool is doing, add `-v` (`--verbose`) to any command. It prints each request sent
+to Plex, with the time, on standard error, followed by a line for the reply: the status, how many
+records were in it (and where that page sits in the whole list), its size and how long it took.
+It also prints when each slow step starts and finishes. Your token
+is hidden in that output.
+
+```console
+$ plextool stale --all-users -v
+```
+
+Reading a big library can take minutes. After about 10 seconds of silence, plextool prints
+`still reading <library>...` to standard error, and again every 20 seconds, so you can tell it has not
+stopped. `--json` output is not affected.
+
 A fuller page for each command is on [Read the Docs](https://plextool.readthedocs.io/)
 (linked in the table above); its source is in `docs/source/commands/`.
 
