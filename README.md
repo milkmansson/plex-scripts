@@ -151,8 +151,8 @@ A fuller page for each command is on [Read the Docs](https://plextool.readthedoc
 
 ## Install
 
-plextool is tested on Python 3.12. It declares Python 3.9 or later, so pip will
-install it on older versions. If something doesn't work on one, please
+plextool needs Python 3.10 or later, because plexapi 4.18 does. It is tested on
+Python 3.12. If something doesn't work on another version, please
 [open an issue](https://github.com/milkmansson/plextool/issues) with the Python
 version.
 

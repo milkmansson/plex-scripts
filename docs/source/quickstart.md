@@ -5,7 +5,7 @@ Plex, choose a server, then start using it.
 
 ## 1. Install
 
-This needs `python` (3.9 or later; 3.12 is what plextool is tested on).
+This needs `python` (3.10 or later; 3.12 is what plextool is tested on).
 
 ```console
 $ python3 -m venv .venv && source .venv/bin/activate   # optional: keeps plextool's packages separate
