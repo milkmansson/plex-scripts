@@ -240,8 +240,10 @@ def test_revoke_by_id_prefix_and_this(signed_in, capsys):
 def test_revoke_refuses_other_products_and_bad_ids(signed_in):
     devs = [device("cccccccc-tv", product="Plex for LG", deleted=[]), device("dddd1111", deleted=[]),
             device("dddd2222", deleted=[])]
-    with pytest.raises(PlexToolError, match="No plextool device starts with 'cccc'"):
+    with pytest.raises(PlexToolError, match="is '.*' \\(Plex for LG\\), which plextool did not make"):
         run_cmd(["auth", "revoke", "cccc", "--commit"], devs)
+    with pytest.raises(PlexToolError, match="No device on the account starts with 'zzzz'"):
+        run_cmd(["auth", "revoke", "zzzz", "--commit"], devs)
     with pytest.raises(PlexToolError, match="matches 2 devices"):
         run_cmd(["auth", "revoke", "dddd", "--commit"], devs)
 

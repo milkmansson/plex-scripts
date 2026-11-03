@@ -4,9 +4,9 @@ A quick look at the server: version, each library's size, and what is playing.
 Read-only.
 
 Handy when:
-- A quick check is needed that the server is up, and which version it runs.
+- The server might be down, or it is unclear which version it runs.
 - Who is watching, and whether it is transcoding, needs checking before a restart or a scan.
-- Which libraries are scanning right now needs checking.
+- A scan may be running, and it is unclear which libraries it covers.
 
 ```console
 $ plextool status

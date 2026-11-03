@@ -10,7 +10,9 @@ from . import (
     __version__,
     audit,
     auth,
+    devices,
     dupes,
+    info,
     playlists,
     recent,
     resume,
@@ -19,6 +21,8 @@ from . import (
     stale,
     status,
     subs,
+    tokens,
+    users,
     watched,
 )
 from .common import PlexToolError, enable_verbose, format_duration
@@ -38,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-v", "--verbose", dest="verbose_first", action="store_true",
                         help="print each request sent to Plex, with its reply, on stderr (also accepted after the command)")
     subparsers = parser.add_subparsers(dest="command", metavar="command")
-    for module in (auth, server, status, scan, recent, dupes, stale, audit, watched, resume, playlists, subs):
+    for module in (auth, tokens, devices, users, server, status, scan, recent, dupes, stale, info, audit, watched, resume, playlists, subs):
         module.add_parser(subparsers)
     return parser
 

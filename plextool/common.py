@@ -403,14 +403,12 @@ def plex_account(args: argparse.Namespace) -> MyPlexAccount:
         raise PlexToolError(f"Could not reach plex.tv: {e}") from None
 
 
-def user_server(args: argparse.Namespace, admin: PlexServer, name: str | None) -> PlexServer:
-    """Open the server as the named user (the owner if name is None or is the owner)."""
-    if not name:
-        return admin
+def user_access_token(args: argparse.Namespace, admin: PlexServer, name: str) -> str | None:
+    """The named user's access token for this server, or None if `name` is the owner."""
     account = plex_account(args)
     own_names = {n.lower() for n in (account.username, account.email, account.title) if n}
     if name.lower() in own_names:
-        return admin
+        return None
     try:
         user = account.user(name)
     except NotFound:
@@ -418,9 +416,19 @@ def user_server(args: argparse.Namespace, admin: PlexServer, name: str | None) -
     token = user.get_token(admin.machineIdentifier)
     if token:
         _SECRETS.add(token)
-    if not token:
+    else:
         raise PlexToolError(
             f"Could not get an access token for '{name}'. Is this server shared with them?")
+    return token
+
+
+def user_server(args: argparse.Namespace, admin: PlexServer, name: str | None) -> PlexServer:
+    """Open the server as the named user (the owner if name is None or is the owner)."""
+    if not name:
+        return admin
+    token = user_access_token(args, admin, name)
+    if token is None:
+        return admin
     try:
         return PlexServer(args.base_url, token)
     except RequestException as e:

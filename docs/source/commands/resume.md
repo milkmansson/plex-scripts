@@ -22,3 +22,5 @@ $ plextool resume --idle 90 --clear watched --commit
 | `-y`, `--commit` | Apply. Without it, `--clear` is only a preview. |
 
 Only partly-watched items are listed. Items Plex offers as "next up" are left alone.
+
+How far back Plex looks for Continue Watching items, and how many it shows, are server settings. They are described in Plex's article on [advanced, hidden server settings](https://support.plex.tv/articles/201105343-advanced-hidden-server-settings/).

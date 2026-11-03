@@ -6,7 +6,7 @@ is not needed every time.
 Handy when:
 - plextool is being set up and Plex runs on another machine.
 - The server's address changes (for example with DHCP) and plextool should keep finding it.
-- There is more than one server, and switching between them is needed.
+- There is more than one server, and switching between them should be quick.
 - There is no internet access and the server must be reached directly.
 
 ```console
@@ -28,17 +28,17 @@ Using My Server (found through your Plex account; its address is looked up on pl
 
 | | How | Good for | Needs |
 | --- | --- | --- | --- |
-| **By name** | `server use "My Server"` | Servers reached from several places, or whose address changes. | A login (`plextool auth login`) and internet access to plex.tv. |
-| **By address** | `server use http://192.168.1.20:32400` | A fixed address, including a server on this machine or one with no internet. | Nothing. The server is contacted once to check it, unless `--no-check` is passed. |
-| **By scan** | `server find` | Discovering what is on the network. | Nothing. Works with no login and no internet, but only on the same network, and some networks block it. |
+| By name | `server use "My Server"` | Servers reached from several places, or whose address changes. | A login (`plextool auth login`) and internet access to plex.tv. |
+| By address | `server use http://192.168.1.20:32400` | A fixed address, including a server on this machine or one with no internet. | Nothing. The server is contacted once to check it, unless `--no-check` is passed. |
+| By scan | `server find` | Discovering what is on the network. | Nothing. Works with no login and no internet, but only on the same network, and some networks block it. |
 
-Choosing **by name** saves only the server's name and Plex's ID for it. Each
+Choosing by name saves only the server's name and Plex's ID for it. Each
 time a command runs, plextool asks plex.tv for the server's current
 addresses (local, remote and relay), tries them all at once and uses the first
 that answers. If plex.tv can't be reached, it falls back to the address that
 last worked.
 
-Choosing **by address** saves the address given. Nothing is looked up.
+Choosing by address saves the address given. Nothing is looked up.
 
 ## Which server is used
 
@@ -60,11 +60,13 @@ A server chosen by name has several addresses (see `server find`). Each time a
 command runs, plextool tests all of them at once with a real request and uses
 the first one that answers, in Plex's fixed order:
 
-1. **local**: the server's address on the local network. Fastest, and traffic
+1. Local: the server's address on the local network. Fastest, and traffic
    stays inside the network.
-2. **remote**: the server's public address, through the router.
-3. **relay**: Plex's relay service. It always works but is slow and
-   bandwidth-limited, so it is only used when nothing else answers.
+2. Remote: the server's public address, through the router.
+3. Relay: Plex's relay service. It always works but is slow and
+   bandwidth-limited, so it is only used when nothing else answers. Plex's article on
+   [why an app cannot find or connect to a server](https://support.plex.tv/articles/204604227-why-can-t-the-plex-app-find-or-connect-to-my-plex-media-server/)
+   covers the same ground from the app side.
 
 Within each kind, HTTPS is tried before HTTP and IPv4 before IPv6. For each
 address the server's own access token is tried first, then the login token. On
@@ -126,10 +128,10 @@ Every address failed DNS lookup. Your router or DNS resolver may be blocking Ple
 Every command except those that need plex.tv works with no internet, talking
 straight to the server's own port (32400 by default).
 
-**On the server's own machine.** Nothing to choose: the default is
-`http://localhost:32400`. Only a token is needed.
+On the server's own machine nothing needs choosing. The default is
+`http://localhost:32400`, and only a token is needed.
 
-**From another machine on the same network.**
+From another machine on the same network, point plextool at the server's address:
 
 ```console
 $ plextool server use http://192.168.1.20:32400
@@ -140,8 +142,8 @@ or, for a one-off, `plextool status --base-url http://192.168.1.20:32400`, or
 at all, add `--no-check` to `server use`, which saves it without contacting the
 server or needing a token.
 
-**Giving it a token without plex.tv.** `plextool auth login` needs plex.tv, so
-get a token once, while access is available, and keep it for the offline machine:
+`plextool auth login` needs plex.tv, so a machine with no internet needs a token that was
+obtained once, while access was available:
 
 ```console
 $ plextool auth login --print > /secure/place/plex-token
@@ -154,11 +156,11 @@ owner's token can also be copied from the server's own `Preferences.xml` (the `P
 value) on the machine it runs on. That is the owner's full token, so treat it
 like a password.
 
-**What works with no internet.** Commands that only talk to the server:
-`status`, `scan`, `recent`, `dupes`, `stale`, `audit`, `resume`, `playlists`,
-`subs`, and `watched` for the owner. `server find`'s network scan works too.
+These commands only talk to the server, so they work with no internet: `status`, `scan`, `recent`,
+`dupes`, `stale`, `info`, `audit`, `resume`, `playlists`, `subs`, and `watched` for the owner.
+`server find`'s network scan works too.
 
-**What needs plex.tv.**
+These need plex.tv:
 
 | Needs plex.tv | Why |
 | --- | --- |
@@ -167,3 +169,5 @@ like a password.
 | `server find` account list, `server use NAME` | They list the account's servers. |
 | Running against a server saved by name | The address is looked up on plex.tv. It falls back to the last address that worked. |
 | `watched` with `--user` (any user, including the owner) | Other users' tokens come from the Plex account. |
+| `stale` with `--all-users` or `--user` | The same: other users' tokens come from the Plex account. |
+| `token`, `devices` and `users` | They work on the Plex account itself. |
