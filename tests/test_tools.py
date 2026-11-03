@@ -87,6 +87,34 @@ def test_scan_can_turn_off_autoreload():
     assert other[0]._autoReload is True
 
 
+def test_format_duration():
+    assert common.format_duration(4.24) == "4.2s"
+    assert common.format_duration(75) == "1m 15s"
+    assert common.format_duration(3700) == "1h 1m 40s"
+
+
+def test_total_time_shown_when_slow_or_verbose(monkeypatch, capsys):
+    from plextool import cli
+    monkeypatch.setattr(stale, "run", lambda args: 0)
+    monkeypatch.setattr(cli, "SHOW_TIME_AFTER", 0)
+    assert cli.main(["stale"]) == 0
+    assert "Finished in " in capsys.readouterr().err
+    monkeypatch.setattr(cli, "SHOW_TIME_AFTER", 3600)
+    cli.main(["stale"])
+    assert capsys.readouterr().err == ""
+    cli.main(["stale", "-v"])
+    assert "Finished in " in capsys.readouterr().err
+
+
+def test_plural():
+    assert common.plural(1, "match") == "1 match"
+    assert common.plural(0, "match") == "0 matches"
+    assert common.plural(4039, "match") == "4039 matches"
+    assert common.plural(2, "file") == "2 files"
+    assert common.plural(2, "subtitle file") == "2 subtitle files"
+    assert common.plural(3, "box") == "3 boxes"
+
+
 def test_describe_reply():
     page = b'<?xml version="1.0"?><MediaContainer size="100" totalSize="5400" offset="200"><Video/></MediaContainer>'
     assert common.describe_reply(200, page, 0.824) == "  <- 200, 100 records (201-300 of 5400), 103 B, 0.82s"

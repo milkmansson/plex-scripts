@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 
 from . import (
     __version__,
@@ -20,7 +21,10 @@ from . import (
     subs,
     watched,
 )
-from .common import PlexToolError, enable_verbose
+from .common import PlexToolError, enable_verbose, format_duration
+
+# Seconds a command must take before its total time is printed (always printed with --verbose).
+SHOW_TIME_AFTER = 5
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -45,10 +49,16 @@ def main(argv: list[str] | None = None) -> int:
     if not args.command:
         parser.print_help()
         return 0
-    if args.verbose_first or getattr(args, "verbose", False):
+    verbose = args.verbose_first or getattr(args, "verbose", False)
+    if verbose:
         enable_verbose()
+    started = time.monotonic()
     try:
-        return args.run(args)
+        status = args.run(args)
+        elapsed = time.monotonic() - started
+        if verbose or elapsed >= SHOW_TIME_AFTER:
+            print(f"Finished in {format_duration(elapsed)}", file=sys.stderr)
+        return status
     except PlexToolError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2

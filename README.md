@@ -139,6 +139,9 @@ is hidden in that output.
 $ plextool stale --all-users -v
 ```
 
+When a command takes more than 5 seconds, plextool prints `Finished in 2m 14s` on standard error at the end
+(with `-v`, always).
+
 Reading a big library can take minutes. After about 10 seconds of silence, plextool prints
 `still reading <library>...` to standard error, and again every 20 seconds, so you can tell it has not
 stopped. `--json` output is not affected.

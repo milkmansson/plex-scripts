@@ -82,7 +82,8 @@ $ plextool watched copy --help
 If a command is slow and you want to see what it is doing, add `-v` (`--verbose`). It prints each
 request sent to Plex, with the time, then a line for the reply (status, number of records,
 size and how long it took), and when each slow step starts and finishes, on standard error. Your token is hidden. After about 10 seconds of silence, plextool also prints
-`still reading ...` notices every 20 seconds even without `-v`.
+`still reading ...` notices every 20 seconds even without `-v`. A command that takes more than 5 seconds also ends with
+`Finished in 2m 14s`.
 
 For example, to get Swedish subtitles for a movie from the subtitle providers Plex searches:
 

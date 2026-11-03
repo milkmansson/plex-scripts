@@ -81,8 +81,20 @@ def pretty_size(num_bytes: int | None) -> str:
     return f"{size:.1f} TB"
 
 
+def format_duration(seconds: float) -> str:
+    """Eg 4.2 -> '4.2s', 75 -> '1m 15s', 3700 -> '1h 1m 40s'."""
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes, secs = divmod(round(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}h {minutes}m {secs}s" if hours else f"{minutes}m {secs}s"
+
+
 def plural(count: int, word: str) -> str:
-    return f"{count} {word}{'' if count == 1 else 's'}"
+    """'1 file', '2 files', '3 matches' (words ending s, x, ch or sh take 'es')."""
+    if count == 1:
+        return f"{count} {word}"
+    return f"{count} {word}{'es' if word.endswith(('s', 'x', 'ch', 'sh')) else 's'}"
 
 
 # ---------------------------------------------------------------------------

@@ -163,7 +163,7 @@ def run(args: argparse.Namespace) -> int:
 
     users = shared_users(args, plex) if args.all_users else []
     users += [name for name in args.user if name.lower() not in {u.lower() for u in users}]
-    for name in users:
+    for number, name in enumerate(users, start=1):
         try:
             user_plex = user_server(args, plex, name)
         except PlexToolError as e:
@@ -173,7 +173,7 @@ def run(args: argparse.Namespace) -> int:
             raise
         if user_plex is plex:
             continue  # --user named the owner, who is already counted
-        print(f"Reading what {name} has watched...", file=sys.stderr)
+        print(f"Reading what {name} has watched (user {number} of {len(users)})...", file=sys.stderr)
         for section in sections:
             try:
                 theirs = user_plex.library.section(section.title)
