@@ -4,10 +4,10 @@ Sign in to Plex from the command line without finding or pasting a token, and
 manage what gets saved on the computer.
 
 Handy when:
-- plextool is being set up for the first time and digging out a token by hand is not wanted.
-- The machine has no browser. The link can be opened, or the QR code scanned, on another device.
-- The devices signed in to the account need listing, and old ones removing.
-- The machine is being handed over, and the saved login and keys should be wiped.
+- plextool is being set up for the first time, without digging out a token by hand.
+- The machine has no browser, so the link is opened, or the QR code scanned, on another device.
+- Old sign-ins are cluttering the account's list of devices.
+- A machine is being handed over, and its saved login and keys should go.
 
 ```console
 $ plextool auth login
@@ -26,7 +26,7 @@ This token does not expire. Revoke it in your Plex account under Authorized Devi
 ```
 
 The first line says which type is being issued. Open the link on any device,
-including a phone, and approve **plextool**. Every other command then uses
+including a phone, and approve plextool. Every other command then uses
 the saved login, so `--token` can be left off.
 
 ## Which type of login?
@@ -40,11 +40,11 @@ token that comes back, which `--type` selects:
 | Expires | Never, until it is revoked | After about a week, and renews itself |
 | If it leaks | Full access until it is revoked | Useless once it expires |
 | Accepted by plex.tv | Yes | Yes |
-| Accepted by the server | Yes | **Not by the servers tried** |
+| Accepted by the server | Yes | Not by the servers tried |
 | Needs | Nothing else | The signing keys saved on the computer |
 
-**The default is the classic token, because Plex Media Server doesn't accept a
-JWT.** A JWT is the better design: it expires by itself and Plex is moving to
+The default is the classic token, because Plex Media Server doesn't accept a
+JWT. A JWT is the better design: it expires by itself and Plex is moving to
 it. But plex.tv is the only part of Plex that accepts it so far. Plex Media
 Server 1.43.5.11079 answers every request that carries one with `401
 Unauthorized`, as did two shared servers that were tried. Most commands in plextool
@@ -56,7 +56,7 @@ plextool tests the saved server straight away and says if it is rejected.
 
 To keep a classic token from sitting in one file, it can be stored in a password
 manager and point `PLEX_TOKEN_CMD` at it (see below), or use `--print`. To limit
-the damage if it leaks, revoke it under Authorized Devices in the Plex account.
+the damage if it leaks, revoke it under [Authorized Devices](https://support.plex.tv/articles/115007577087-devices/) in the Plex account.
 
 ## Where things are kept
 
@@ -66,8 +66,10 @@ Everything lives in one folder, readable only by the current user (folder `0700`
 | Path | Contents |
 | --- | --- |
 | `~/.config/plextool/auth.json` | The current token, the sign-in type and a random device ID. |
-| `~/.config/plextool/jwt_private.key` | The **private signing key**. This is the secret that matters. It never leaves the computer. |
+| `~/.config/plextool/jwt_private.key` | The private signing key, which is the secret that matters. It never leaves the computer. |
 | `~/.config/plextool/jwt_public.key` | The matching public key. Plex holds a copy. |
+| `~/.config/plextool/tokens.json` | A record of the tokens made with [`plextool token`](token.md): names, dates and files, but never a token. |
+| `~/.config/plextool/invites.json` | What [`plextool users invite`](users.md) granted in invitations not yet accepted: libraries, restrictions and features. No secrets. |
 
 The folder is `$XDG_CONFIG_HOME/plextool` if that is set, and
 `$PLEXTOOL_CONFIG_DIR` overrides both. The keys are created by `auth login`
@@ -103,8 +105,8 @@ when a JWT expires. The token is never printed.
 
 ### `plextool auth devices`
 
-Every login adds a device to the Plex account, shown under **Authorized
-Devices** in Plex's settings. This lists the ones plextool made, newest first,
+Every login adds a device to the Plex account, shown under Authorized
+Devices in Plex's settings. This lists the ones plextool made, newest first,
 and marks the one the saved login uses:
 
 ```console
@@ -118,28 +120,42 @@ Devices on your Plex account signed in through plextool
 The ID is the start of the device ID. `--all` lists every device on the
 account, whatever made it. That view is read-only.
 
+A device named `plextool/NAME` is a token made for another tool with
+[`plextool token new --rw`](token.md). It is marked in this list, and
+[`plextool token list`](token.md) shows more about it.
+
 ### `plextool auth revoke`
 
 Removes plextool devices from the Plex account, so plex.tv rejects their tokens.
-It only ever removes plextool's own entries; Plex apps, TVs and other
-devices are never touched. Like the other commands that change things, it
+It only ever removes plextool's own entries. Other apps, TVs and devices are removed
+with [`plextool devices remove`](devices.md). Like the other commands that change things, it
 is a dry run unless `--commit` is passed.
 
 ```console
 $ plextool auth revoke --others                 # preview: every plextool device except this login's
 $ plextool auth revoke --others --commit        # remove them
+$ plextool auth revoke --unused-for 7           # preview: plextool sign-ins not used in the last 7 days
 $ plextool auth revoke 730dc1cb --commit        # one device, by the start of its ID
 $ plextool auth revoke --this --commit          # this login's own device
 ```
 
-- `--others` is the usual clean-up: it keeps the login this computer is using.
+- `--others` is the usual clean-up: it keeps the login this computer is using, and also
+  the tokens made for other tools with `plextool token`, so a routine clean-up cannot cut
+  them off. They are removed with [`plextool token revoke`](token.md), or by giving the
+  start of their ID here.
+- `--unused-for DAYS` selects every plextool sign-in that has not been used in the last DAYS days (or
+  never). It is the safe way to clear out old test sign-ins, because a sign-in on another computer that is
+  still in use is left alone, which `--others` would remove. It never selects this login, or the tokens made
+  with `plextool token`.
 - `--this` removes this login's device from the account. Do it before
   `plextool auth wipe` to have the sign-in revoked on Plex's side too, since
   the wipe deletes the token needed to do it later.
 - Several IDs can be given at once. An ID that matches nothing, or more than one
-  device, is an error.
+  device, is an error. An ID that belongs to another app (a browser session, a TV) is refused,
+  and the message names the app, since this command only removes what plextool made. Other
+  apps are removed with [`plextool devices remove`](devices.md).
 
-**It is not an instant cut-off.** In testing, plex.tv rejected a removed
+A removed token does not stop working everywhere at once. In testing, plex.tv rejected a removed
 device's token straight away, but a Plex Media Server kept accepting the same
 token at least five minutes later. A server remembers a token it has already
 accepted for a while; how long is up to Plex and not something plextool
@@ -155,7 +171,7 @@ empty. It asks for `WIPE` to be typed first; `--assume-yes` skips that.
 
 Wiping only removes things from this computer. To cut off access on Plex's
 side too, run `plextool auth revoke --this --commit` before wiping, or remove
-**plextool** under **Authorized Devices** in the Plex account afterwards. Do
+plextool under Authorized Devices in the Plex account afterwards. Do
 that as well if a computer is lost or a key or token may have been copied. See
 [the note on revoking](#plextool-auth-revoke): a server can keep accepting a
 revoked token for a while.

@@ -22,10 +22,10 @@ The three actions read from different places, which is easy to mix up:
 
 | Action | Where the subtitle comes from | What plextool connects to |
 | --- | --- | --- |
-| `extract` | A track **embedded in the video file** (MKV or MP4). | Nothing: it reads the file with `mkvextract` or `ffmpeg`. It only talks to Plex for the optional `--scan`. |
-| `fetch` | Plex's **subtitle providers on the internet**. Plex searches and downloads; plextool just asks it to. | The Plex server. |
-| `fetch --export` | The same download, then **copied out of the Plex server**. | The Plex server. |
-| `export` | Subtitles **Plex already has**, kept in its database from earlier downloads. | The Plex server. |
+| `extract` | A track embedded in the video file (MKV or MP4). | Nothing: it reads the file with `mkvextract` or `ffmpeg`. It only talks to Plex for the optional `--scan`. |
+| `fetch` | Plex's subtitle providers on the internet. Plex searches and downloads; plextool just asks it to. | The Plex server. |
+| `fetch --export` | The same download, then copied out of the Plex server. | The Plex server. |
+| `export` | Subtitles Plex already has, kept in its database from earlier downloads. | The Plex server. |
 
 In short:
 - Only `extract` reads the video file.
@@ -69,7 +69,7 @@ subfolders, is checked. Each subtitle track is saved beside its video.
 
 These rules apply to all three actions.
 
-Names follow Plex's rules for external subtitles: the language code, then
+Names follow Plex's rules for [external subtitles](https://support.plex.tv/articles/200471133-adding-local-subtitles-to-your-media/): the language code, then
 `.forced` or `.sdh` if the track is flagged that way, then the extension.
 
 | Track | File |
@@ -112,7 +112,7 @@ without a server.
 
 ## export
 
-When Plex's "Search for subtitles" is used, the result is stored in Plex's
+When Plex's [subtitle search](https://support.plex.tv/articles/subtitle-search/) is used, the result is stored in Plex's
 database, not beside the video, and can't be reused elsewhere. `export` fetches
 those stored subtitles back from the Plex server and saves them as ordinary files
 next to the video. It does not read the video file and does not contact any

@@ -8,7 +8,7 @@ from types import SimpleNamespace as NS
 import pytest
 from plexapi.exceptions import NotFound
 
-from plextool import audit, common, dupes, playlists, resume, stale, watched
+from plextool import audit, common, devices, dupes, info, playlists, resume, stale, tokens, users, watched
 from plextool.cli import build_parser
 from plextool.common import PlexToolError, confirm_typed, item_size, read_json, working, write_json
 
@@ -24,6 +24,874 @@ def episode(show, n, size=100, views=0, added=None, last=None):
     return NS(type="episode", title=f"E{n}", grandparentTitle=show, seasonNumber=1, episodeNumber=n,
               guid=f"plex://episode/{show}{n}", media=[NS(parts=[part(size=size)])],
               viewCount=views, addedAt=added, lastViewedAt=last)
+
+
+# --- info ----------------------------------------------------------------
+
+def stream_part(video=(), audio=(), subs=(), file="/m/a.mkv", size=100):
+    return NS(file=file, size=size, container="mkv", videoStreams=lambda: list(video),
+              audioStreams=lambda: list(audio), subtitleStreams=lambda: list(subs))
+
+
+def media_version(part, **kw):
+    base = {"container": "mkv", "duration": 9720000, "bitrate": 5000, "aspectRatio": 1.78, "parts": [part],
+            "videoCodec": "hevc", "videoProfile": "main 10", "width": 1920, "height": 1080,
+            "videoFrameRate": "24p"}
+    return NS(**{**base, **kw})
+
+
+def movie_item(title, year, version, key=1):
+    return NS(title=title, year=year, type="movie", ratingKey=key, librarySectionTitle="Movies",
+              media=[version], duration=9720000, guids=[NS(id="imdb://tt1")], guid=f"plex://movie/{key}")
+
+
+def test_fmt_duration():
+    assert info.fmt_duration(9720000) == "2h 42m"
+    assert info.fmt_duration(2710000) == "45m 10s"
+    assert info.fmt_duration(None) is None
+
+
+def test_hdr_label():
+    assert info.hdr_label(NS(DOVIPresent=True, DOVIProfile=8)) == "Dolby Vision (profile 8)"
+    assert info.hdr_label(NS(DOVIPresent=False, colorTrc="smpte2084")) == "HDR10"
+    assert info.hdr_label(NS(colorTrc="arib-std-b67")) == "HLG"
+    assert info.hdr_label(NS(colorTrc="bt709")) is None
+
+
+def test_version_info_reads_streams():
+    video = NS(codec="hevc", profile="main 10", width=1920, height=1080, bitDepth=10, frameRate=23.976,
+               bitrate=4000, colorSpace="bt2020nc", colorTrc="smpte2084")
+    audio = NS(language="English", languageCode="eng", codec="dca", channels=6, audioChannelLayout="5.1",
+               bitrate=1509, title="DTS", default=True)
+    sub_file = NS(language="English", languageCode="eng", format="srt", forced=False, hearingImpaired=True,
+                  title=None, key="/library/streams/9", providerTitle="OpenSubtitles")
+    sub_in = NS(language="Japanese", languageCode="jpn", format="pgs", forced=True, hearingImpaired=False,
+                title=None, key=None, providerTitle=None)
+    version = info.version_info(media_version(stream_part([video], [audio], [sub_file, sub_in], size=44)))
+    assert version["video"]["resolution"] == "1920x1080" and version["video"]["hdr"] == "HDR10"
+    assert version["audio"][0]["codec"] == "dca" and version["audio"][0]["default"] is True
+    assert [s["source"] for s in version["subtitles"]] == ["external", "embedded"]
+    assert version["subtitles"][0]["sdh"] and version["subtitles"][1]["forced"]
+    assert version["size"] == 44 and version["files"][0]["path"] == "/m/a.mkv"
+
+
+def test_version_info_without_streams_falls_back_to_the_version():
+    version = info.version_info(media_version(stream_part()))
+    assert version["video"]["codec"] == "hevc" and version["video"]["resolution"] == "1920x1080"
+    assert version["audio"] == [] and version["subtitles"] == []
+    assert version["analysed"] is False
+
+
+def test_unanalysed_file_is_labelled_not_left_blank(capsys):
+    unanalysed = info.version_info(media_version(stream_part()))
+    info.print_version(1, 1, unanalysed)
+    out = capsys.readouterr().out
+    assert "Plex has not analysed this file yet" in out
+    assert "audio      not analysed" in out and "subtitles  not analysed" in out
+    columns = info.comparison_columns([info.item_info(movie_item("Ran", 1985, media_version(stream_part())))])
+    row = columns[0][1]
+    assert row["audio"] == "not analysed" and row["subtitles"] == "not analysed"
+    assert row["hdr"] == "not analysed" and row["bit depth"] == "not analysed"
+
+
+def test_analysed_file_with_no_tracks_says_none(capsys):
+    video = NS(codec="h264", profile="high", width=1280, height=720, bitDepth=8, frameRate=25,
+               bitrate=2000, colorSpace=None, colorTrc=None)
+    version = info.version_info(media_version(stream_part([video])))
+    assert version["analysed"] is True
+    info.print_version(1, 1, version)
+    out = capsys.readouterr().out
+    assert "audio (0)  none" in out and "subtitles (0)  none" in out
+    row = info.comparison_columns([info.item_info(movie_item("X", 2000, media_version(stream_part([video]))))])[0][1]
+    assert row["audio"] == "none" and row["subtitles"] == "none" and row["hdr"] is None
+
+
+def test_choose_one():
+    ran, remaster = NS(title="Ran", ratingKey=1, year=1985, type="movie", librarySectionTitle="M"), \
+        NS(title="Ran (Remastered)", ratingKey=2, year=2020, type="movie", librarySectionTitle="M")
+    assert info.choose_one("ran", [ran, remaster]) is ran           # an exact title wins
+    assert info.choose_one("Ran", [ran]) is ran
+    with pytest.raises(PlexToolError, match="matches 2 items") as raised:
+        info.choose_one("Ra", [ran, remaster])
+    assert "-k 1" in str(raised.value) and "-k 2" in str(raised.value)
+    with pytest.raises(PlexToolError, match="Nothing matches"):
+        info.choose_one("Zed", [])
+
+
+def test_comparison_marks_what_differs():
+    first = movie_item("Ran", 1985, media_version(stream_part(size=44, file="/m/a.mkv")), key=1)
+    second = movie_item("Ran", 2020, media_version(stream_part(size=22, file="/m/b.mkv"), videoCodec="h264"), key=2)
+    infos = [info.item_info(first), info.item_info(second)]
+    columns = info.comparison_columns(infos)
+    assert [h for h, _ in columns] == ["Ran (1985)", "Ran (2020)"]
+    assert columns[0][1]["size"] != columns[1][1]["size"]
+    assert columns[0][1]["container"] == columns[1][1]["container"]
+
+
+def test_comparison_splits_an_items_versions():
+    item = movie_item("Ran", 1985, media_version(stream_part(file="/m/a.mkv")))
+    item.media.append(media_version(stream_part(file="/m/b.mp4"), container="mp4"))
+    headings = [h for h, _ in info.comparison_columns([info.item_info(item)])]
+    assert headings == ["Ran (1985) [v1]", "Ran (1985) [v2]"]
+
+
+def test_print_comparison_flags_differing_rows(capsys):
+    info.print_comparison([("A", {"size": "1 GB", "container": "mkv"}), ("B", {"size": "2 GB", "container": "mkv"})])
+    out = capsys.readouterr().out
+    assert "size *" in out and "container *" not in out and "* differs" in out
+
+
+def test_parse_groups():
+    assert info.parse_groups("tech, people") == ("tech", "people")
+    with pytest.raises(ArgumentTypeError):
+        info.parse_groups("tech,bogus")
+
+
+def test_info_needs_an_item(monkeypatch):
+    args = build_parser().parse_args(["info"])
+    with pytest.raises(PlexToolError, match="Say which item"):
+        info.run(args)
+
+
+# --- token ---------------------------------------------------------------
+
+def token_args(*argv):
+    return build_parser().parse_args(["token", *argv])
+
+
+@pytest.fixture
+def config(tmp_path, monkeypatch):
+    monkeypatch.setenv("PLEXTOOL_CONFIG_DIR", str(tmp_path / "cfg"))
+    monkeypatch.delenv("PLEX_URL", raising=False)
+    return tmp_path
+
+
+def test_token_new_requires_access_and_destination(capsys):
+    for argv in ([], ["new"], ["new", "--rw", "--name", "x"], ["new", "--file", "f"], ["new", "--print"],
+                 ["new", "--rw", "--ro", "--print"], ["new", "--rw", "--print", "--file", "f"]):
+        with pytest.raises(SystemExit):
+            token_args(*argv)
+        capsys.readouterr()
+
+
+def test_token_new_rw_needs_a_name_and_no_user():
+    with pytest.raises(PlexToolError, match="--rw needs --name"):
+        tokens.run(token_args("new", "--rw", "--print"))
+    with pytest.raises(PlexToolError, match="--user goes with --ro"):
+        tokens.run(token_args("new", "--rw", "--name", "x", "--user", "alice", "--print"))
+
+
+def test_token_new_ro_needs_a_user():
+    with pytest.raises(PlexToolError, match="--ro needs --user"):
+        tokens.run(token_args("new", "--ro", "--print"))
+
+
+def test_env_text_and_private_file(tmp_path):
+    text = tokens.env_text("read/write", "http://nas:32400", "SECRET", "mcp")
+    assert "PLEX_URL=http://nas:32400\nPLEX_TOKEN=SECRET\n" in text and text.startswith("# Made by plextool on ")
+    assert "PLEX_URL" not in tokens.env_text("read/write", None, "SECRET", "mcp")
+    path = tmp_path / "sub" / "plex.env"
+    tokens.deliver(token_args("new", "--rw", "--name", "x", "--file", str(path)), "SECRET", text)
+    assert path.read_text() == text and (path.stat().st_mode & 0o777) == 0o600
+    with pytest.raises(PlexToolError, match="already exists"):
+        tokens.deliver(token_args("new", "--rw", "--name", "x", "--file", str(path)), "SECRET", text)
+    tokens.deliver(token_args("new", "--rw", "--name", "x", "--file", str(path), "--force"), "NEW", "NEW\n")
+    assert path.read_text() == "NEW\n"
+
+
+def test_token_new_rw_makes_a_named_device_and_records_it(monkeypatch, config, capsys):
+    seen = {}
+
+    def fake_request(timeout, device_name=None, file=None):
+        seen.update(timeout=timeout, device=device_name)
+        return "RWTOKEN", "abcdef12-0000"
+    monkeypatch.setattr(tokens.auth, "request_token", fake_request)
+    monkeypatch.setattr("plextool.server.load_saved", lambda: {"kind": "account", "last_url": "http://nas:32400"})
+    assert tokens.run(token_args("new", "--rw", "--name", "mcp", "--print")) == 0
+    captured = capsys.readouterr()
+    assert captured.out == "RWTOKEN\n"                         # only the token on standard output
+    assert seen["device"] == "plextool/mcp"
+    assert "same power as the Plex account" in captured.err and "token revoke mcp" in captured.err
+    out = config / "e.env"
+    tokens.run(token_args("new", "--rw", "--name", "other", "--file", str(out)))
+    assert "PLEX_URL=http://nas:32400" in out.read_text() and "PLEX_TOKEN=RWTOKEN" in out.read_text()
+    record = {e["name"]: e for e in tokens.load_record()}
+    assert record["mcp"]["device_id"] == "abcdef12-0000" and record["mcp"]["file"] is None
+    assert record["other"]["file"] == str(out.resolve())
+    assert "RWTOKEN" not in tokens.record_path().read_text()    # no secrets in the record
+
+
+def test_token_new_ro_uses_the_users_token(monkeypatch, config, capsys):
+    admin = NS(_baseurl="http://nas:32400", machineIdentifier="machine1")
+    monkeypatch.setattr(tokens, "connect", lambda args: admin)
+    monkeypatch.setattr(tokens, "user_access_token", lambda args, plex, name: "ALICETOKEN")
+    shown = NS(library=NS(sections=lambda: [NS(title="Movies"), NS(title="TV Shows")]))
+    monkeypatch.setattr(tokens, "PlexServer", lambda url, token, timeout=None: shown)
+    out = config / "ro.env"
+    assert tokens.run(token_args("new", "--ro", "--user", "alice", "--file", str(out))) == 0
+    assert "PLEX_TOKEN=ALICETOKEN" in out.read_text() and "PLEX_URL=http://nas:32400" in out.read_text()
+    err = capsys.readouterr().err
+    assert "Movies, TV Shows" in err and "no truly read-only token" in err and "delete media" in err
+    entry = tokens.load_record()[0]
+    assert entry["access"] == "ro" and entry["user"] == "alice" and entry["machine_id"] == "machine1"
+
+
+def test_token_new_ro_refuses_the_owner(monkeypatch):
+    monkeypatch.setattr(tokens, "connect", lambda args: NS(_baseurl="http://nas:32400"))
+    monkeypatch.setattr(tokens, "user_access_token", lambda args, plex, name: None)
+    with pytest.raises(PlexToolError, match="owner of this server"):
+        tokens.run(token_args("new", "--ro", "--user", "me", "--print"))
+
+
+def test_token_new_ro_reports_a_rejected_token(monkeypatch):
+    from plexapi.exceptions import Unauthorized
+    monkeypatch.setattr(tokens, "connect", lambda args: NS(_baseurl="http://nas:32400"))
+    monkeypatch.setattr(tokens, "user_access_token", lambda args, plex, name: "T")
+
+    def reject(*a, **kw):
+        raise Unauthorized("no")
+    monkeypatch.setattr(tokens, "PlexServer", reject)
+    with pytest.raises(PlexToolError, match="did not accept"):
+        tokens.run(token_args("new", "--ro", "--user", "alice", "--print"))
+
+
+class FakeDevice:
+    def __init__(self, name, client_id, product="plextool"):
+        self.name, self.clientIdentifier, self.product = name, client_id, product
+        self.createdAt = self.lastSeenAt = datetime(2026, 11, 3, 10, 0)
+        self.deleted = False
+
+    def delete(self):
+        self.deleted = True
+
+
+def fake_account(monkeypatch, devices, shares=()):
+    monkeypatch.setattr(tokens, "resolve_token", lambda args: ("tok", "test"))
+    monkeypatch.setattr(tokens.auth, "account_devices", lambda token, everything=False: devices)
+    monkeypatch.setattr(tokens, "connect", lambda args: NS(machineIdentifier="machine1"))
+    users = [NS(title=t, username=t, email=None, restricted="0", home=False,
+                servers=[NS(machineIdentifier="machine1", pending=False, allLibraries=False, numLibraries=2)])
+             for t in shares]
+    monkeypatch.setattr(tokens, "plex_account", lambda args: NS(users=lambda: users))
+
+
+def test_token_list_shows_tokens_users_and_gone_entries(monkeypatch, config, capsys):
+    mcp = FakeDevice("plextool/mcp", "aaaaaaaa-1111")
+    login = FakeDevice("plextool on host", "bbbbbbbb-2222")
+    tv = FakeDevice("Living Room TV", "cccccccc-3333", product="Plex for LG")
+    fake_account(monkeypatch, [mcp, login, tv], shares=["alice", "bob"])
+    tokens.save_record([
+        {"name": "mcp", "access": "rw", "device_id": "aaaaaaaa-1111", "created": "2026-11-03", "file": "/h/mcp.env"},
+        {"name": "old", "access": "rw", "device_id": "dddddddd-4444", "created": "2026-10-01", "file": None},
+        {"name": "alice", "access": "ro", "user": "alice", "created": "2026-11-02", "file": None,
+         "machine_id": "machine1"},
+        {"name": "carol", "access": "ro", "user": "carol", "created": "2026-11-02", "file": None,
+         "machine_id": "machine1"}])
+    assert tokens.run(token_args("list")) == 0
+    out = capsys.readouterr().out
+    assert "Apps and devices authorised on the Plex account" in out
+    assert "Living Room TV" in out and "Plex for LG" in out        # other apps are listed by default
+    assert "token for another tool: mcp" in out and "plextool sign-in" in out
+    assert "mcp" in out and "/h/mcp.env" in out and "active" in out
+    assert "old" in out and "no longer on the account" in out
+    assert "user still has access" in out and "user no longer has access" in out
+    assert "Users with access to this server" in out and "bob" in out and "2 libraries" in out
+    assert "temporary tokens" in out
+
+
+def test_token_list_plextool_only(monkeypatch, config, capsys):
+    mcp, tv = FakeDevice("plextool/mcp", "aaaaaaaa-1111"), FakeDevice("Living Room TV", "cccccccc-3333", "Plex for LG")
+    fake_account(monkeypatch, [mcp, tv])
+    assert tokens.run(token_args("list", "--plextool", "--no-users")) == 0
+    out = capsys.readouterr().out
+    assert "plextool's only" in out and "Living Room TV" not in out and "mcp" in out
+
+
+def test_token_list_without_users(monkeypatch, config, capsys):
+    fake_account(monkeypatch, [], shares=["alice"])
+    assert tokens.run(token_args("list", "--no-users")) == 0
+    out = capsys.readouterr().out
+    assert "Users with access" not in out and "none" in out
+
+
+def test_token_revoke_is_a_dry_run_until_committed(monkeypatch, config, capsys):
+    mcp, login = FakeDevice("plextool/mcp", "aaaaaaaa-1111"), FakeDevice("plextool on host", "bbbbbbbb-2222")
+    fake_account(monkeypatch, [mcp, login])
+    env = config / "mcp.env"
+    env.write_text("PLEX_TOKEN=x\n")
+    tokens.save_record([{"name": "mcp", "access": "rw", "device_id": "aaaaaaaa-1111", "file": str(env)}])
+    assert tokens.run(token_args("revoke", "mcp", "--delete-file")) == 0
+    assert "Would remove" in capsys.readouterr().out and not mcp.deleted and env.exists()
+    assert tokens.run(token_args("revoke", "mcp", "--delete-file", "--commit")) == 0
+    assert mcp.deleted and not login.deleted and not env.exists()
+    assert tokens.load_record() == []
+
+
+def test_token_revoke_by_id_prefix_and_unknown(monkeypatch, config):
+    mcp = FakeDevice("plextool/mcp", "aaaaaaaa-1111")
+    fake_account(monkeypatch, [mcp])
+    tokens.run(token_args("revoke", "aaaa", "--commit"))
+    assert mcp.deleted
+    with pytest.raises(PlexToolError, match="No token named or starting 'nope'"):
+        tokens.run(token_args("revoke", "nope"))
+
+
+def test_token_revoke_never_touches_plain_logins(monkeypatch, config):
+    login = FakeDevice("plextool on host", "bbbbbbbb-2222")
+    web = FakeDevice("Chrome", "m6t825jf0abc", product="Plex Web")
+    fake_account(monkeypatch, [login, web])
+    with pytest.raises(PlexToolError, match="plain plextool sign-in.*auth revoke bbbbbbbb"):
+        tokens.run(token_args("revoke", "bbbbbbbb", "--commit"))
+    with pytest.raises(PlexToolError, match="'Chrome' \\(Plex Web\\).*did not make"):
+        tokens.run(token_args("revoke", "m6t825jf", "--commit"))
+    with pytest.raises(PlexToolError, match="No token named or starting 'zzz'"):
+        tokens.run(token_args("revoke", "zzz", "--commit"))
+    assert not login.deleted and not web.deleted
+
+
+def test_token_revoke_ro_explains_and_can_forget(monkeypatch, config, capsys):
+    fake_account(monkeypatch, [])
+    tokens.save_record([{"name": "alice", "access": "ro", "user": "alice"}])
+    assert tokens.run(token_args("revoke", "alice", "--commit")) == 0
+    assert "no device of its own" in capsys.readouterr().out and len(tokens.load_record()) == 1
+    tokens.run(token_args("revoke", "alice", "--forget", "--commit"))
+    assert tokens.load_record() == []
+
+
+def test_auth_revoke_unused_for_picks_only_old_plain_sign_ins(monkeypatch, config, capsys):
+    from datetime import timedelta
+
+    from plextool import auth
+    now = datetime.now()
+    fresh, stale_, never, current, named = (FakeDevice("plextool on mms-p2", "aaaaaaaa-1"),
+                                            FakeDevice("plextool on old", "bbbbbbbb-2"),
+                                            FakeDevice("plextool on never", "cccccccc-3"),
+                                            FakeDevice("plextool on here", "dddddddd-4"),
+                                            FakeDevice("plextool/mcp", "eeeeeeee-5"))
+    fresh.lastSeenAt = now - timedelta(days=1)
+    stale_.lastSeenAt = now - timedelta(days=30)
+    never.lastSeenAt = None
+    current.lastSeenAt = now - timedelta(days=90)
+    named.lastSeenAt = now - timedelta(days=90)
+    monkeypatch.setattr(auth, "resolve_token", lambda args: ("tok", "test"))
+    monkeypatch.setattr(auth, "account_devices", lambda token, everything=False: [fresh, stale_, never, current, named])
+    monkeypatch.setattr(auth, "load_state", lambda: {"client_id": "dddddddd-4"})
+    auth.revoke_devices(NS(ids=[], others=False, this=False, unused_for=7, commit=False))
+    assert not any(d.deleted for d in (fresh, stale_, never, current, named))        # a dry run
+    auth.revoke_devices(NS(ids=[], others=False, this=False, unused_for=7, commit=True))
+    assert stale_.deleted and never.deleted
+    assert not (fresh.deleted or current.deleted or named.deleted)
+    with pytest.raises(PlexToolError, match="at least 1 day"):
+        auth.revoke_devices(NS(ids=[], others=False, this=False, unused_for=0, commit=True))
+
+
+def test_auth_revoke_says_when_an_id_belongs_to_another_app(monkeypatch, config):
+    from plextool import auth
+    login, web = FakeDevice("plextool on host", "bbbbbbbb-2222"), FakeDevice("Chrome", "m6t825jf0abc", "Plex Web")
+    monkeypatch.setattr(auth, "resolve_token", lambda args: ("tok", "test"))
+    monkeypatch.setattr(auth, "account_devices", lambda token, everything=False:
+                        [login, web] if everything else [login])
+    monkeypatch.setattr(auth, "load_state", lambda: {"client_id": "bbbbbbbb-2222"})
+    args = {"others": False, "this": False, "unused_for": None, "commit": True}
+    with pytest.raises(PlexToolError, match="'Chrome' \\(Plex Web\\).*did not make"):
+        auth.revoke_devices(NS(ids=["m6t825jf"], **args))
+    with pytest.raises(PlexToolError, match="No device on the account starts with 'zzz'"):
+        auth.revoke_devices(NS(ids=["zzz"], **args))
+    assert not web.deleted
+
+
+def test_auth_revoke_others_keeps_tokens_made_for_other_tools(monkeypatch, config, capsys):
+    from plextool import auth
+    mcp, login, old = (FakeDevice("plextool/mcp", "aaaaaaaa-1111"), FakeDevice("plextool on host", "bbbbbbbb-2222"),
+                       FakeDevice("plextool on laptop", "cccccccc-3333"))
+    monkeypatch.setattr(auth, "resolve_token", lambda args: ("tok", "test"))
+    monkeypatch.setattr(auth, "account_devices", lambda token, everything=False: [mcp, login, old])
+    monkeypatch.setattr(auth, "load_state", lambda: {"client_id": "bbbbbbbb-2222"})
+    auth.revoke_devices(NS(ids=[], others=True, this=False, unused_for=None, commit=True))
+    assert old.deleted and not mcp.deleted and not login.deleted
+    assert "Keeping 1 token" in capsys.readouterr().out
+
+
+def test_token_names_get_the_plextool_prefix(monkeypatch, config):
+    from plextool import auth
+    seen = []
+    monkeypatch.setattr(tokens.auth, "request_token", lambda timeout, device_name=None, file=None:
+                        (seen.append(device_name), ("T", "id-1"))[1])
+    for given in ("mcp", "plextool/mcp", "  mcp  "):
+        tokens.run(token_args("new", "--rw", "--name", given, "--print"))
+    assert seen == ["plextool/mcp"] * 3
+    with pytest.raises(PlexToolError, match="cannot be empty"):
+        tokens.run(token_args("new", "--rw", "--name", "plextool/", "--print"))
+    assert auth.is_named_token(NS(name="plextool/mcp")) and auth.is_named_token(NS(name="plextool: old"))
+    assert not auth.is_named_token(NS(name="plextool on host"))
+    assert auth.token_label("plextool/mcp") == "mcp" and auth.token_label("plextool: old") == "old"
+
+
+# --- devices -------------------------------------------------------------
+
+def make_devices(monkeypatch, current="bbbbbbbb-2222"):
+    now = datetime.now()
+    from datetime import timedelta
+    fleet = {
+        "web_old": FakeDevice("Chrome", "m6t825jf0abc", "Plex Web"),
+        "web_new": FakeDevice("Firefox", "n7u936kg1def", "Plex Web"),
+        "tv": FakeDevice("Living Room TV", "cccccccc-3333", "Plex for LG"),
+        "login": FakeDevice("plextool on host", "bbbbbbbb-2222"),
+        "named": FakeDevice("plextool/mcp", "aaaaaaaa-1111"),
+        "server": FakeDevice("mms-p2", "eeeeeeee-5555", "Plex Media Server"),
+    }
+    fleet["web_old"].lastSeenAt = now - timedelta(days=400)
+    fleet["web_new"].lastSeenAt = now - timedelta(days=1)
+    fleet["tv"].lastSeenAt = now - timedelta(days=200)
+    fleet["login"].lastSeenAt = now - timedelta(days=300)
+    fleet["named"].lastSeenAt = now - timedelta(days=300)
+    fleet["server"].lastSeenAt = now - timedelta(days=500)
+    monkeypatch.setattr(devices, "resolve_token", lambda args: ("tok", "test"))
+    monkeypatch.setattr(devices.auth, "account_devices", lambda token, everything=False: list(fleet.values()))
+    monkeypatch.setattr(devices.auth, "load_state", lambda: {"client_id": current})
+    monkeypatch.setattr(devices, "plex_account", lambda args: NS(resources=lambda: [
+        NS(clientIdentifier="eeeeeeee-5555", provides="server"),
+        NS(clientIdentifier="ffffffff-6666", provides="client,player")]))
+    return fleet
+
+
+def deleted(fleet):
+    return sorted(k for k, d in fleet.items() if d.deleted)
+
+
+def test_is_server_by_product_or_provides():
+    assert common and devices.auth.is_server(NS(product="Plex Media Server", provides="server"))
+    assert devices.auth.is_server(NS(product="Something", provides="client,server"))
+    assert not devices.auth.is_server(NS(product="Plex Web", provides="client,player"))
+    assert not devices.auth.is_server(NS(product="Plex Web"))
+
+
+def test_devices_list_filters(monkeypatch, capsys):
+    make_devices(monkeypatch)
+    devices.run(build_parser().parse_args(["devices", "list", "--product", "plex web"]))
+    out = capsys.readouterr().out
+    assert "Chrome" in out and "Firefox" in out and "Living Room TV" not in out
+    devices.run(build_parser().parse_args(["devices", "list", "--unused-for", "100"]))
+    out = capsys.readouterr().out
+    assert "Chrome" in out and "Living Room TV" in out and "Firefox" not in out
+    assert "Plex Media Server (not removable with plextool)" in out
+
+
+def test_devices_remove_needs_a_selection():
+    with pytest.raises(PlexToolError, match="Say what to remove"):
+        devices.run(build_parser().parse_args(["devices", "remove"]))
+
+
+def test_devices_remove_filters_skip_servers_the_login_and_named_tokens(monkeypatch, capsys):
+    fleet = make_devices(monkeypatch)
+    args = build_parser().parse_args(["devices", "remove", "--unused-for", "100"])
+    assert devices.run(args) == 0
+    out = capsys.readouterr().out
+    assert deleted(fleet) == [] and "Dry run only" in out and "signed out" in out
+    assert "Not selecting 3 matching devices" in out
+    devices.run(build_parser().parse_args(["devices", "remove", "--unused-for", "100", "--commit"]))
+    assert deleted(fleet) == ["tv", "web_old"]
+
+
+def test_devices_remove_filters_combine(monkeypatch):
+    fleet = make_devices(monkeypatch)
+    devices.run(build_parser().parse_args(
+        ["devices", "remove", "--product", "Plex Web", "--unused-for", "100", "--commit"]))
+    assert deleted(fleet) == ["web_old"]
+    fleet2 = make_devices(monkeypatch)
+    devices.run(build_parser().parse_args(["devices", "remove", "--name", "living", "--commit"]))
+    assert deleted(fleet2) == ["tv"]
+
+
+def test_devices_remove_by_id_and_refusals(monkeypatch, capsys):
+    fleet = make_devices(monkeypatch)
+    devices.run(build_parser().parse_args(["devices", "remove", "m6t825jf", "--commit"]))
+    assert deleted(fleet) == ["web_old"]
+    with pytest.raises(PlexToolError, match="is a Plex Media Server.*does not remove servers"):
+        devices.run(build_parser().parse_args(["devices", "remove", "eeeeeeee", "--commit"]))
+    with pytest.raises(PlexToolError, match="No device on the account starts with 'zzz'"):
+        devices.run(build_parser().parse_args(["devices", "remove", "zzz"]))
+    assert "server" not in deleted(fleet)
+
+
+def test_devices_remove_can_name_the_login_and_a_named_token(monkeypatch, capsys):
+    fleet = make_devices(monkeypatch)
+    devices.run(build_parser().parse_args(["devices", "remove", "bbbbbbbb", "aaaaaaaa", "--commit"]))
+    assert deleted(fleet) == ["login", "named"]
+    assert "saved login" in capsys.readouterr().out
+
+
+def test_servers_survive_any_age_filter(monkeypatch):
+    fleet = make_devices(monkeypatch)
+    devices.run(build_parser().parse_args(["devices", "remove", "--unused-for", "365", "--commit"]))
+    assert "server" not in deleted(fleet) and deleted(fleet) == ["web_old"]    # the server is 500 days old
+
+
+def test_a_server_the_product_name_misses_is_caught_by_plex_tv(monkeypatch):
+    fleet = make_devices(monkeypatch)
+    fleet["server"].product, fleet["server"].provides = "Mystery Product", None   # not recognisable by name
+    devices.run(build_parser().parse_args(["devices", "remove", "--unused-for", "365", "--commit"]))
+    assert "server" not in deleted(fleet)
+    with pytest.raises(PlexToolError, match="is a Plex Media Server"):
+        devices.run(build_parser().parse_args(["devices", "remove", "eeeeeeee", "--commit"]))
+    assert "server" not in deleted(fleet)
+
+
+def test_nothing_is_removed_if_plex_tv_cannot_confirm_the_servers(monkeypatch):
+    from requests.exceptions import ConnectionError as RequestsConnectionError
+    fleet = make_devices(monkeypatch)
+
+    def fail(args):
+        raise RequestsConnectionError("down")
+    monkeypatch.setattr(devices, "plex_account", fail)
+    for argv in (["--unused-for", "365", "--commit"], ["m6t825jf", "--commit"]):
+        with pytest.raises(PlexToolError, match="nothing was removed"):
+            devices.run(build_parser().parse_args(["devices", "remove", *argv]))
+    assert deleted(fleet) == []
+    devices.run(build_parser().parse_args(["devices", "list"]))        # listing still works
+
+
+def test_devices_remove_rejects_a_bad_age(monkeypatch):
+    make_devices(monkeypatch)
+    with pytest.raises(PlexToolError, match="at least 1 day"):
+        devices.run(build_parser().parse_args(["devices", "remove", "--unused-for", "0"]))
+
+
+# --- users ---------------------------------------------------------------
+
+class FakeAccount:
+    """Records what plextool asks Plex to do, and does nothing."""
+
+    username, email, title = "owner", "owner@example.com", "Owner"
+
+    FRIENDINVITE = "https://plex.tv/api/servers/{machineId}/shared_servers"
+
+    def __init__(self, people=(), invites=(), shared_xml=None):
+        self.people, self.invites, self.calls = list(people), list(invites), []
+        self.shared_xml, self.queried = shared_xml, []
+
+    def query(self, url):
+        import xml.etree.ElementTree as ET
+        self.queried.append(url)
+        if isinstance(self.shared_xml, Exception):
+            raise self.shared_xml
+        return ET.fromstring(self.shared_xml or "<MediaContainer/>")
+
+    def users(self):
+        return self.people
+
+    def user(self, name):
+        from plexapi.exceptions import NotFound
+        for p in self.people:
+            if name.lower() in {p.title.lower(), p.username.lower(), p.email.lower()}:
+                return p
+        raise NotFound(name)
+
+    def pendingInvites(self, includeSent=True, includeReceived=True):
+        return self.invites
+
+    def inviteFriend(self, who, server, **kwargs):
+        self.calls.append(("invite", who, kwargs))
+
+    def updateFriend(self, user, server, **kwargs):
+        self.calls.append(("update", user.title, kwargs))
+
+    def removeFriend(self, user):
+        self.calls.append(("removeFriend", user.title))
+
+    def cancelInvite(self, invite):
+        self.calls.append(("cancel", invite.email))
+
+
+def share_for(machine="machine1", libs=2, all_libs=False, pending=False):
+    return NS(machineIdentifier=machine, pending=pending, allLibraries=all_libs, numLibraries=libs,
+              sections=lambda: [NS(title="Movies", shared=True), NS(title="TV Shows", shared=False)])
+
+
+def person(name, shares=(), home=False, restricted="0"):
+    return NS(title=name, username=name.lower(), email=f"{name.lower()}@example.com", servers=list(shares),
+              home=home, restricted=restricted, allowSync=True, allowCameraUpload=False, allowChannels=False,
+              filterMovies="contentRating=G", filterTelevision="", filterMusic="")
+
+
+def users_setup(monkeypatch, config, account):
+    plex = NS(machineIdentifier="machine1", friendlyName="Fake", library=NS(sections=lambda: [
+        NS(title="Movies"), NS(title="TV Shows"), NS(title="Music")]))
+    monkeypatch.setattr(users, "connect", lambda args: plex)
+    monkeypatch.setattr(users, "plex_account", lambda args: account)
+    monkeypatch.setattr(users, "resolve_token", lambda args: ("tok", "test"))
+    return plex
+
+
+def run_users(*argv):
+    return users.run(build_parser().parse_args(["users", *argv]))
+
+
+def test_users_restriction_parsing():
+    assert users.restriction("G,PG,!R", "kids,!scary") == {
+        "contentRating": ["G", "PG"], "contentRating!": ["R"], "label": ["kids"], "label!": ["scary"]}
+    assert users.restriction(None, "") is None
+
+
+def test_users_invite_requires_libraries(capsys):
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["users", "invite", "a@example.com"])
+    capsys.readouterr()
+
+
+def test_users_invite_is_a_preview_until_committed(monkeypatch, config, capsys):
+    account = FakeAccount()
+    users_setup(monkeypatch, config, account)
+    assert run_users("invite", "alice@example.com", "--libraries", "Movies,tv shows",
+                     "--movies-rating", "G,!R", "--downloads", "yes") == 0
+    out = capsys.readouterr().out
+    assert account.calls == []
+    assert "Would invite alice@example.com to Fake" in out and "libraries: Movies, TV Shows" in out
+    assert "movies restrictions: contentRating G; contentRating not R" in out
+    assert "downloads: allowed" in out and "camera upload: not allowed" in out
+    assert "sends them an email" in out and "Dry run only" in out
+    run_users("invite", "alice@example.com", "--libraries", "Movies,tv shows",
+              "--movies-rating", "G,!R", "--downloads", "yes", "--commit")
+    kind, who, kwargs = account.calls[0]
+    assert (kind, who) == ("invite", "alice@example.com")
+    assert kwargs["sections"] == ["Movies", "TV Shows"]
+    assert kwargs["allowSync"] is True and kwargs["allowCameraUpload"] is False and kwargs["allowChannels"] is False
+    assert kwargs["filterMovies"] == {"contentRating": ["G"], "contentRating!": ["R"]}
+    assert "filterTelevision" not in kwargs
+
+
+def test_users_invite_all_libraries_and_unknown_library(monkeypatch, config):
+    account = FakeAccount()
+    users_setup(monkeypatch, config, account)
+    run_users("invite", "a@example.com", "--libraries", "all", "--commit")
+    assert account.calls[0][2]["sections"] == ["Movies", "TV Shows", "Music"]
+    with pytest.raises(PlexToolError, match="No library called 'Films'.*Use --libraries all"):
+        run_users("invite", "a@example.com", "--libraries", "Films", "--commit")
+
+
+def test_users_invite_refuses_existing_access_pending_invites_and_the_owner(monkeypatch, config):
+    account = FakeAccount(people=[person("Alice", [share_for()])],
+                          invites=[NS(email="bob@example.com", username="", friendlyName="")])
+    users_setup(monkeypatch, config, account)
+    with pytest.raises(PlexToolError, match="already has access.*users share"):
+        run_users("invite", "alice@example.com", "--libraries", "all", "--commit")
+    with pytest.raises(PlexToolError, match="already waiting.*users cancel"):
+        run_users("invite", "bob@example.com", "--libraries", "all", "--commit")
+    with pytest.raises(PlexToolError, match="owns this server"):
+        run_users("invite", "owner@example.com", "--libraries", "all", "--commit")
+    assert account.calls == []
+
+
+def test_users_invite_reports_plex_refusals(monkeypatch, config):
+    from plexapi.exceptions import BadRequest
+
+    class Refusing(FakeAccount):
+        def inviteFriend(self, who, server, **kwargs):
+            raise BadRequest("(400) nope")
+    users_setup(monkeypatch, config, Refusing())
+    with pytest.raises(PlexToolError, match="did not accept that.*Plex Pass"):
+        run_users("invite", "a@example.com", "--libraries", "all", "--movies-rating", "G", "--commit")
+
+
+def test_users_share_changes_only_what_is_named(monkeypatch, config, capsys):
+    account = FakeAccount(people=[person("Alice", [share_for()])])
+    users_setup(monkeypatch, config, account)
+    with pytest.raises(PlexToolError, match="Say what to change"):
+        run_users("share", "alice")
+    run_users("share", "alice", "--downloads", "no")
+    assert account.calls == [] and "Would change what Alice can do" in capsys.readouterr().out
+    run_users("share", "alice", "--downloads", "no", "--tv-label", "!scary", "--commit")
+    _, _, kwargs = account.calls[0]
+    assert kwargs == {"sections": None, "allowSync": False, "filterTelevision": {"label!": ["scary"]}}
+    run_users("share", "alice", "--clear-restrictions", "--libraries", "Movies", "--commit")
+    assert account.calls[1][2] == {"sections": ["Movies"], "filterMovies": {}, "filterTelevision": {},
+                                   "filterMusic": {}}
+    with pytest.raises(PlexToolError, match="cannot be combined"):
+        run_users("share", "alice", "--clear-restrictions", "--movies-rating", "G")
+
+
+def test_users_share_without_access_needs_libraries(monkeypatch, config, capsys):
+    account = FakeAccount(people=[person("Carol")])
+    users_setup(monkeypatch, config, account)
+    with pytest.raises(PlexToolError, match="no access to this server yet"):
+        run_users("share", "carol", "--downloads", "yes")
+    run_users("share", "carol", "--libraries", "Movies")
+    assert "grants it" in capsys.readouterr().out
+    with pytest.raises(PlexToolError, match="not a user on this account"):
+        run_users("share", "nobody", "--downloads", "yes")
+    with pytest.raises(PlexToolError, match="owns this server"):
+        run_users("share", "owner", "--downloads", "yes")
+
+
+def test_users_remove_needs_a_choice_and_previews(monkeypatch, config, capsys):
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["users", "remove", "alice"])
+    capsys.readouterr()
+    account = FakeAccount(people=[person("Alice", [share_for(libs=3)])])
+    users_setup(monkeypatch, config, account)
+    tokens.save_record([{"name": "alice-reader", "access": "ro", "user": "Alice"}])
+    run_users("remove", "alice", "--server-access")
+    out = capsys.readouterr().out
+    assert account.calls == [] and "stay a friend" in out and "loses: 3 libraries" in out
+    assert "alice-reader" in out and "stop working" in out
+    run_users("remove", "alice", "--server-access", "--commit")
+    kind, _, kwargs = account.calls[0]
+    assert kind == "update" and kwargs == {"sections": ["Movies"], "removeSections": True}   # a non-empty list is needed
+    run_users("remove", "alice", "--friend", "--commit")
+    assert account.calls[1] == ("removeFriend", "Alice")
+
+
+def test_users_remove_refusals(monkeypatch, config):
+    account = FakeAccount(people=[person("Alice", [share_for()]), person("Kid", [share_for()], home=True),
+                                  person("Dave")])
+    users_setup(monkeypatch, config, account)
+    with pytest.raises(PlexToolError, match="owns this server"):
+        run_users("remove", "owner", "--friend", "--commit")
+    with pytest.raises(PlexToolError, match="Plex Home"):
+        run_users("remove", "kid", "--friend", "--commit")
+    with pytest.raises(PlexToolError, match="no access to Fake"):
+        run_users("remove", "dave", "--server-access", "--commit")
+    assert account.calls == []
+
+
+def pending_invite(email="bob@example.com"):
+    """An invitation shaped like Plex's reply: the server name and a library count, nothing more."""
+    import xml.etree.ElementTree as ET
+    from datetime import datetime
+    element = ET.fromstring(f'<Invite id="{email}" createdAt="1793720895" friend="0" home="0" server="1" '
+                            f'username="" email="{email}" friendlyName="{email}"><Server name="Fake" numLibraries="2"/></Invite>')
+    return NS(email=email, username="", friendlyName=email, server=True, home=False,
+              createdAt=datetime(2026, 11, 3), _data=element,
+              servers=[NS(name="Fake", numLibraries=2, allLibraries=False)])
+
+
+def test_users_invites_show_the_count_and_what_plextool_recorded(monkeypatch, config, capsys):
+    account = FakeAccount()
+    users_setup(monkeypatch, config, account)
+    run_users("invite", "bob@example.com", "--libraries", "Movies,TV Shows", "--tv-rating", "TV-Y",
+              "--downloads", "yes", "--commit")
+    capsys.readouterr()
+    account.invites = [pending_invite("bob@example.com"), pending_invite("other@example.com")]
+    run_users("invites")
+    out = capsys.readouterr().out
+    assert out.count("Fake: 2 libraries") == 2
+    assert "libraries: Movies, TV Shows  (as recorded when invited)" in out
+    assert "TV restrictions: contentRating TV-Y  (as recorded when invited)" in out
+    assert "downloads: allowed" in out
+    assert "Plex does not say which libraries or settings" in out            # the invitation plextool did not send
+    assert "TOKEN" not in users.auth.config_dir().joinpath("invites.json").read_text()
+
+
+SHARED_LIST = (
+    '<MediaContainer><SharedServer id="9" invitedEmail="bob@example.com" accessToken="SECRETTOKEN" '
+    'allowSync="1" allowChannels="0" allowCameraUpload="0" filterMovies="contentRating=G,PG">'
+    '<Section id="1" key="1" title="Movies" type="movie" shared="1"/>'
+    '<Section id="2" key="2" title="TV Shows" type="show" shared="0"/>'
+    '<Section id="3" key="3" title="Music" type="artist" shared="1"/></SharedServer>'
+    '<SharedServer id="8" invitedEmail="someone@else.com" accessToken="OTHERSECRET"/></MediaContainer>')
+
+
+def test_users_invites_use_plexs_shared_list_when_it_has_the_details(monkeypatch, config, capsys):
+    account = FakeAccount(invites=[pending_invite("bob@example.com")], shared_xml=SHARED_LIST)
+    users_setup(monkeypatch, config, account)
+    run_users("invites")
+    out = capsys.readouterr().out
+    assert account.queried == ["https://plex.tv/api/servers/machine1/shared_servers"]
+    assert "libraries: Movies, Music  (from Plex)" in out and "TV Shows" not in out
+    assert "features: downloads  (from Plex)" in out
+    assert "restrictions: movies: contentRating=G,PG  (from Plex)" in out
+    assert "as recorded" not in out and "SECRET" not in out
+
+
+def test_plexs_list_wins_over_the_local_record(monkeypatch, config, capsys):
+    account = FakeAccount(shared_xml=SHARED_LIST)
+    users_setup(monkeypatch, config, account)
+    run_users("invite", "bob@example.com", "--libraries", "TV Shows", "--commit")
+    account.invites = [pending_invite("bob@example.com")]
+    capsys.readouterr()
+    run_users("invites")
+    out = capsys.readouterr().out
+    assert "libraries: Movies, Music  (from Plex)" in out and "as recorded" not in out
+
+
+def test_users_invites_raw_shows_the_matching_entry_without_secrets(monkeypatch, config, capsys):
+    account = FakeAccount(invites=[pending_invite("bob@example.com"), pending_invite("none@example.com")],
+                          shared_xml=SHARED_LIST)
+    users_setup(monkeypatch, config, account)
+    run_users("invites", "--raw")
+    out = capsys.readouterr().out
+    assert 'invitedEmail="bob@example.com"' in out and 'title="Movies"' in out
+    assert "SECRETTOKEN" not in out and "OTHERSECRET" not in out and "accessToken" not in out
+    assert "has nothing for this invitation" in out
+
+
+def test_users_invites_fall_back_when_plex_will_not_give_the_list(monkeypatch, config, capsys):
+    from plexapi.exceptions import BadRequest
+    account = FakeAccount(invites=[pending_invite()], shared_xml=BadRequest("(400) no"))
+    users_setup(monkeypatch, config, account)
+    run_users("invites")
+    out = capsys.readouterr().out
+    assert "Fake: 2 libraries" in out and "Plex does not say which libraries" in out
+
+
+def test_users_invites_still_work_if_the_server_cannot_be_reached(monkeypatch, config, capsys):
+    account = FakeAccount(invites=[pending_invite()])
+    users_setup(monkeypatch, config, account)
+
+    def unreachable(args):
+        raise PlexToolError("down")
+    monkeypatch.setattr(users, "connect", unreachable)
+    run_users("invites")
+    captured = capsys.readouterr()
+    assert "Fake: 2 libraries" in captured.out and "Could not reach the server" in captured.err
+    assert account.queried == []
+
+
+def test_users_invites_forget_what_is_no_longer_pending(monkeypatch, config, capsys):
+    account = FakeAccount()
+    users_setup(monkeypatch, config, account)
+    run_users("invite", "bob@example.com", "--libraries", "Movies", "--commit")
+    account.invites = []                                  # accepted, or cancelled elsewhere
+    run_users("invites")
+    assert "none" in capsys.readouterr().out and users.load_invites() == []
+
+
+def test_users_cancel_forgets_the_record(monkeypatch, config):
+    account = FakeAccount()
+    users_setup(monkeypatch, config, account)
+    run_users("invite", "bob@example.com", "--libraries", "Movies", "--commit")
+    account.invites = [pending_invite("bob@example.com")]
+    assert len(users.load_invites()) == 1
+    run_users("cancel", "bob@example.com", "--commit")
+    assert users.load_invites() == []
+
+
+def test_users_invites_raw_is_plexs_reply(monkeypatch, config, capsys):
+    users_setup(monkeypatch, config, FakeAccount(invites=[pending_invite()]))
+    run_users("invites", "--raw")
+    raw = capsys.readouterr().out
+    assert raw.startswith("<Invite") and 'numLibraries="2"' in raw
+
+
+def test_users_list_invites_and_cancel(monkeypatch, config, capsys):
+    from datetime import datetime
+    invite = NS(email="bob@example.com", username="bob", friendlyName="Bob", server=True, home=False,
+                createdAt=datetime(2026, 11, 3))
+    account = FakeAccount(people=[person("Alice", [share_for(all_libs=True)]), person("Dave")], invites=[invite])
+    users_setup(monkeypatch, config, account)
+    run_users("list", "--detail")
+    out = capsys.readouterr().out
+    assert "Alice" in out and "all libraries" in out and "Dave" not in out
+    assert "features: downloads" in out and "restrictions: movies: contentRating=G" in out
+    assert "shared: Movies" in out and "1 invitation waiting" in out
+    run_users("invites")
+    assert "bob@example.com" in capsys.readouterr().out
+    run_users("cancel", "BOB@example.com")
+    assert account.calls == [] and "Would cancel" in capsys.readouterr().out
+    run_users("cancel", "bob", "--commit")
+    assert account.calls == [("cancel", "bob@example.com")]
+    with pytest.raises(PlexToolError, match="No waiting invitation"):
+        run_users("cancel", "zed")
 
 
 # --- progress ------------------------------------------------------------
@@ -113,6 +981,50 @@ def test_plural():
     assert common.plural(2, "file") == "2 files"
     assert common.plural(2, "subtitle file") == "2 subtitle files"
     assert common.plural(3, "box") == "3 boxes"
+
+
+def _connect_failing(monkeypatch, error, saved=None, url=None):
+    monkeypatch.setattr(common, "resolve_token", lambda args: ("tok", "test"))
+    monkeypatch.setattr("plextool.server.load_saved", lambda: saved)
+
+    def refuse(*a, **kw):
+        raise error
+    monkeypatch.setattr(common, "PlexServer", refuse)
+    args = NS(base_url=url, token=None, token_file=None)
+    with pytest.raises(PlexToolError) as raised:
+        common.connect(args)
+    return str(raised.value)
+
+
+def test_connect_without_a_chosen_server_says_so(monkeypatch):
+    import requests
+    monkeypatch.delenv("PLEX_URL", raising=False)
+    message = _connect_failing(monkeypatch, requests.exceptions.ConnectTimeout("Connection to localhost timed out"))
+    assert message.startswith("Could not reach http://localhost:32400: no answer (timed out).")
+    assert "No server is chosen" in message and "plextool server use" in message
+    assert "HTTPConnectionPool" not in message
+
+
+def test_connect_with_an_explicit_url_does_not_blame_the_default(monkeypatch):
+    import requests
+    monkeypatch.delenv("PLEX_URL", raising=False)
+    error = requests.exceptions.ConnectionError("Failed to establish a new connection: [Errno 111] Connection refused")
+    message = _connect_failing(monkeypatch, error, url="http://nas:32400")
+    assert message == "Could not reach http://nas:32400: connection refused (nothing is listening there)."
+
+
+def test_default_connect_uses_a_short_timeout(monkeypatch):
+    monkeypatch.delenv("PLEX_URL", raising=False)
+    monkeypatch.setattr(common, "resolve_token", lambda args: ("tok", "test"))
+    monkeypatch.setattr("plextool.server.load_saved", lambda: None)
+    seen = {}
+
+    def fake(url, token, timeout=None):
+        seen.update(url=url, timeout=timeout)
+        return NS(_baseurl=url)
+    monkeypatch.setattr(common, "PlexServer", fake)
+    common.connect(NS(base_url=None, token=None, token_file=None))
+    assert seen == {"url": "http://localhost:32400", "timeout": common.DEFAULT_TIMEOUT}
 
 
 def test_describe_reply():

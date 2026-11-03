@@ -88,12 +88,12 @@ def _require_jwt_support():
     return MyPlexJWTLogin
 
 
-def _headers(client_id: str) -> dict:
+def _headers(client_id: str, device_name: str | None = None) -> dict:
     return {
         "X-Plex-Client-Identifier": client_id,
         "X-Plex-Product": "plextool",
         "X-Plex-Version": __version__,
-        "X-Plex-Device-Name": f"plextool on {socket.gethostname()}",
+        "X-Plex-Device-Name": device_name or f"plextool on {socket.gethostname()}",
     }
 
 
@@ -191,22 +191,23 @@ KIND_BLURB = {
 }
 
 
-def show_link(url: str, kind: str) -> None:
+def show_link(url: str, kind: str, file=None) -> None:
     # The JWT sign-in is known to work with the trimmed link. The classic token sign-in is known to
     # work with the full link, so it gets that (and a bigger QR code).
     link = _short_link(url) if kind == "jwt" else url
-    print(paint(f"Signing in for {KIND_BLURB[kind]}.", "bold") + "\n")
-    print("Open this link in a browser and sign in to Plex:\n")
-    print(f"  {link}\n")
+    out = file or sys.stdout
+    print(paint(f"Signing in for {KIND_BLURB[kind]}.", "bold") + "\n", file=out)
+    print("Open this link in a browser and sign in to Plex:\n", file=out)
+    print(f"  {link}\n", file=out)
     try:
         import segno
     except ImportError:
-        print("(Install 'segno' to see a QR code here as well: pip install segno)\n")
+        print("(Install 'segno' to see a QR code here as well: pip install segno)\n", file=out)
     else:
-        if sys.stdout.isatty():
-            segno.make(link, error="l").terminal(compact=True)
-            print("Or scan the code above with your phone.\n")
-    print("Waiting for you to approve it...")
+        if out.isatty():
+            segno.make(link, error="l").terminal(compact=True, out=out)
+            print("Or scan the code above with your phone.\n", file=out)
+    print("Waiting for you to approve it...", file=out)
 
 
 def _new_client_id() -> str:
@@ -250,13 +251,18 @@ def login_jwt(timeout: int) -> None:
         print("Once you have chosen a server, 'plextool server test' shows whether it accepts a JWT.")
 
 
-def login_token(timeout: int, print_only: bool) -> None:
+def request_token(timeout: int, device_name: str | None = None, file=None) -> tuple[str, str]:
+    """Run the browser sign-in for a classic token; returns (token, device ID). Saves nothing.
+
+    The sign-in appears under Authorized Devices as `device_name` (default 'plextool on <host>').
+    The link and prompts go to `file` (default standard output).
+    """
     from plexapi.myplex import MyPlexPinLogin
     client_id = _new_client_id()
-    login = MyPlexPinLogin(headers=_headers(client_id), oauth=True)
+    login = MyPlexPinLogin(headers=_headers(client_id, device_name), oauth=True)
     try:
         login.run(timeout=timeout)
-        show_link(login.oauthUrl(), "token")
+        show_link(login.oauthUrl(), "token", file)
         approved = login.waitForLogin()
     except RequestException as e:
         raise PlexToolError(f"Could not reach plex.tv: {e}") from None
@@ -264,11 +270,16 @@ def login_token(timeout: int, print_only: bool) -> None:
         login.stop()
     if not approved:
         raise PlexToolError("Sign-in was not approved in time. Nothing was saved.")
+    return login.token, client_id
+
+
+def login_token(timeout: int, print_only: bool) -> None:
+    token, client_id = request_token(timeout)
     if print_only:
-        print(login.token)
+        print(token)
         return
     directory = config_dir()
-    save_state({"client_id": client_id, "kind": "token", "token": login.token})
+    save_state({"client_id": client_id, "kind": "token", "token": token})
     for name in KEY_FILES:  # a JWT login's keys are no use any more
         (directory / name).unlink(missing_ok=True)
     print(paint("\nSigned in with a classic token.", "green") + f" Saved to {directory}")
@@ -282,6 +293,8 @@ def login_token(timeout: int, print_only: bool) -> None:
 # ---------------------------------------------------------------------------
 
 PRODUCT = "plextool"
+NAMED_TOKEN_PREFIX = "plextool/"   # devices made by `plextool token new --rw --name X`
+OLD_NAMED_TOKEN_PREFIX = "plextool: "   # what early versions used; still recognised
 
 
 def account_devices(token: str, everything: bool = False) -> list:
@@ -305,8 +318,29 @@ def _short(device) -> str:
     return (device.clientIdentifier or "")[:8]
 
 
+def is_named_token(device) -> bool:
+    """True for a device made by 'plextool token new --rw', which belongs to another tool."""
+    return (device.name or "").startswith((NAMED_TOKEN_PREFIX, OLD_NAMED_TOKEN_PREFIX))
+
+
+def is_server(device) -> bool:
+    """True for a Plex Media Server's own entry, which plextool never removes."""
+    provides = [p.strip() for p in (getattr(device, "provides", None) or "").split(",")]
+    return (device.product or "").lower() == "plex media server" or "server" in provides
+
+
+def token_label(device_name: str) -> str:
+    """The name a token was given, without plextool's prefix."""
+    for prefix in (NAMED_TOKEN_PREFIX, OLD_NAMED_TOKEN_PREFIX):
+        if device_name.startswith(prefix):
+            return device_name[len(prefix):]
+    return device_name
+
+
 def describe_device(device, current_id: str | None) -> str:
     mark = paint("  (this login)", "green") if current_id and device.clientIdentifier == current_id else ""
+    if is_named_token(device):
+        mark = paint("  (token for another tool; see 'plextool token list')", "yellow")
     return (f"  {_short(device):<10}{device.name or '?':<40}created {_when(device.createdAt)}   "
             f"last seen {_when(device.lastSeenAt)}{mark}")
 
@@ -326,15 +360,28 @@ def list_devices(args: argparse.Namespace) -> None:
 
 
 def revoke_devices(args: argparse.Namespace) -> None:
-    if not (args.ids or args.others or args.this):
-        raise PlexToolError("Say what to remove: --others, --this, or one or more device IDs "
-                            "from 'plextool auth devices'.")
+    if not (args.ids or args.others or args.this or args.unused_for is not None):
+        raise PlexToolError("Say what to remove: --others, --this, --unused-for DAYS, or one or more device "
+                            "IDs from 'plextool auth devices'.")
+    if args.unused_for is not None and args.unused_for < 1:
+        raise PlexToolError("--unused-for must be at least 1 day.")
     token, _ = resolve_token(args)
-    devices = account_devices(token)
+    everything = account_devices(token, everything=True)
+    devices = [d for d in everything if (d.product or "").lower() == PRODUCT]
     current = load_state().get("client_id")
     chosen = {}
     if args.others:
-        chosen.update({d.clientIdentifier: d for d in devices if d.clientIdentifier != current})
+        kept = [d for d in devices if is_named_token(d)]
+        if kept:
+            print(f"Keeping {plural(len(kept), 'token')} made for other tools with 'plextool token'. "
+                  "'plextool token revoke NAME' removes those.")
+        chosen.update({d.clientIdentifier: d for d in devices
+                       if d.clientIdentifier != current and not is_named_token(d)})
+    if args.unused_for is not None:
+        cutoff = datetime.now() - timedelta(days=args.unused_for)
+        chosen.update({d.clientIdentifier: d for d in devices
+                       if d.clientIdentifier != current and not is_named_token(d)
+                       and (d.lastSeenAt is None or d.lastSeenAt < cutoff)})
     if args.this:
         if not current:
             raise PlexToolError("No saved login, so there is no device of this computer to remove.")
@@ -342,8 +389,14 @@ def revoke_devices(args: argparse.Namespace) -> None:
     for prefix in args.ids:
         matches = [d for d in devices if (d.clientIdentifier or "").startswith(prefix)]
         if not matches:
-            raise PlexToolError(f"No plextool device starts with '{prefix}'. "
-                                "'plextool auth devices' lists them.")
+            other = [d for d in everything if (d.clientIdentifier or "").startswith(prefix)]
+            if other:
+                raise PlexToolError(
+                    f"'{prefix}' is '{other[0].name or '?'}' ({other[0].product or 'unknown app'}), which plextool "
+                    f"did not make, so 'auth revoke' will not remove it. "
+                    f"'plextool devices remove {prefix}' removes other apps.")
+            raise PlexToolError(f"No device on the account starts with '{prefix}'. "
+                                "'plextool token list' shows them all.")
         if len(matches) > 1:
             raise PlexToolError(f"'{prefix}' matches {len(matches)} devices; give more of the ID.")
         chosen[matches[0].clientIdentifier] = matches[0]
@@ -475,10 +528,11 @@ def add_parser(subparsers) -> None:
     revoke = add_command(
         sub, "revoke", "remove plextool sign-ins from your Plex account",
         "Remove plextool devices from your Plex account so plex.tv rejects their tokens. Only "
-        "plextool's own entries can be removed; other Plex apps and devices are never touched. "
+        "plextool's own entries can be removed; other Plex apps and devices are removed with 'plextool devices remove'. "
         "Nothing is removed unless you pass --commit.",
         ["plextool auth revoke --others",
          "plextool auth revoke --others --commit",
+         "plextool auth revoke --unused-for 7 --commit",
          "plextool auth revoke 3895d339 --commit",
          "plextool auth revoke --this --commit"])
     add_token_args(revoke)
@@ -488,6 +542,9 @@ def add_parser(subparsers) -> None:
                         help="every plextool device except the one this login uses")
     revoke.add_argument("--this", action="store_true",
                         help="the device this login uses (do this before 'auth wipe')")
+    revoke.add_argument("--unused-for", type=int, metavar="DAYS",
+                        help="every plextool sign-in not used in the last DAYS days (never this login, "
+                             "and never tokens made with 'plextool token')")
     revoke.add_argument("--commit", action="store_true", help="actually remove them")
 
     wipe_parser = add_command(

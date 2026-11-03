@@ -49,13 +49,13 @@ Future dates work. They put the item at the front until that date passes.
 
 `-y`, `--commit` applies the changes.
 
-By default the new date is **locked** in Plex, the same as editing the date in
+By default the new date is locked in Plex, the same as editing the date in
 the web UI, so a later rescan or metadata refresh leaves it alone. Pass
 `--no-lock` to write the date without locking it.
 
 ## TV shows
 
-Plex builds the TV Recently Added list from **episodes**, so changing only the
+Plex builds the TV Recently Added list from episodes, so changing only the
 show usually changes nothing visible. To reorder a series, use `--cascade`, or
 work on episodes directly with `--level episode`.
 

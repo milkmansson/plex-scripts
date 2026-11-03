@@ -25,8 +25,12 @@ quickstart
 :caption: Commands
 
 commands/auth
+commands/token
+commands/devices
+commands/users
 commands/server
 commands/status
+commands/info
 commands/scan
 commands/recent
 commands/dupes

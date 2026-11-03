@@ -1,6 +1,6 @@
 # plextool scan
 
-Asks the server to scan libraries for new files, refresh metadata, and tidy up.
+Asks the server to [scan libraries](https://support.plex.tv/articles/200392106-library-actions/) for new files, refresh metadata, and tidy up.
 This is the step needed after moving files around or after
 [`plextool subs extract`](subs.md).
 
@@ -22,8 +22,8 @@ $ plextool scan --empty-trash --optimize
 | `-l`, `--library NAME` | Library to act on. Repeat for several. Default is all movie and TV libraries. |
 | `--path DIR` | Scan only this folder, as the server sees the path. Needs exactly one `--library`. |
 | `--refresh` | Force a metadata refresh from the internet. Slow on big libraries. Locked fields are left alone. |
-| `--empty-trash` | Empty each library's trash. |
-| `--optimize` | Optimize the server database. |
+| `--empty-trash` | [Empty](https://support.plex.tv/articles/200289326-emptying-library-trash/) each library's trash. |
+| `--optimize` | Optimize the server database (see Plex's [troubleshooting article](https://support.plex.tv/articles/226836308-help/)). |
 | `--clean-bundles` | Remove unused metadata bundles. |
 | `--wait` | Wait until the libraries stop scanning. |
 

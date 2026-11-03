@@ -4,7 +4,7 @@ Finds what is taking disk space and not being watched. Movies are listed
 individually; TV is summed per show. Read-only.
 
 Handy when:
-- The disk is filling up and the biggest things that nobody watches are wanted.
+- The disk is filling up, and the biggest things nobody watches are the ones to find.
 - What has sat idle for years needs checking before anything is deleted.
 - The server is shared, and something another user watches should not be flagged (`--all-users`).
 
@@ -33,7 +33,7 @@ including duplicate versions.
 
 ## Whose viewing counts
 
-By default, "watched" means watched by the **token owner** only. On a shared server
+By default, "watched" means watched by the token owner only. On a shared server
 that is rarely what is wanted, since something the owner has never opened may be a
 favourite of another user.
 
@@ -58,8 +58,7 @@ Things to know:
 - plextool signs in as each user, using the access the server owner has to the
   server, and reads what they have watched. It needs the owner's token and plex.tv
   to be reachable. This is the same method as [`plextool watched`](watched).
-- **One pass per user.** Each user costs one extra read of each library, on top of the
-  owner's. Only their watched items are fetched, which is lighter than the owner's full
+- Each user adds one pass over each library, on top of the owner's. Only their watched items are fetched, which is lighter than the owner's full
   read, but with many users and big libraries it can still take a long time. Use `-l` to
   limit it to one library. While it works, plextool prints
   `still reading ...` lines to standard error every 20 seconds, after the first 10 seconds.

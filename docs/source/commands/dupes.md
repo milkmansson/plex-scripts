@@ -5,9 +5,9 @@ what to delete can be decided. It is read-only unless `--keep` is used. Using th
 and awkward with spaces or non-Latin characters in file names.
 
 Handy when:
-- A title appears twice, or a folder holds two versions of the same movie or episode.
-- Files were re-encoded or upgraded and the old copies are still there.
-- Disk space is needed and the duplicates that would free the most should come first (`--sort size`).
+- A title shows up twice, or a folder holds two versions of the same movie or episode.
+- Files were re-encoded or upgraded and the old copies are still around.
+- Disk space is short, and the duplicates that free the most should come first (`--sort size`).
 
 ```console
 $ plextool dupes [-l NAME ...] [-n LIMIT] [--sort title|size] [--json] [--keep POLICY [--commit]]
@@ -77,7 +77,7 @@ $ plextool dupes -l Movies --keep best-resolution --commit   # asks for DELETE t
 This **permanently deletes files from disk**. It is a preview unless `--commit` is
 passed, and then `DELETE` must be typed to continue (`--assume-yes` skips
 that for scripts). Items with a multi-part version are skipped, since deleting
-one part would break the item. Plex must have "Allow media deletion" turned on
+one part would break the item. Plex must have ["Allow media deletion"](https://support.plex.tv/articles/200289526-library/) turned on
 (Settings > Library), or the server refuses.
 
 Because the duplicates are whatever Plex has matched together, read the
