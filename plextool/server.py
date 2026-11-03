@@ -319,8 +319,7 @@ def run_use(args: argparse.Namespace) -> int:
         raise PlexToolError(f"No server called '{target}' on your account. Available: {names}")
     server = matches[0]
     save({"kind": "account", "name": server.name, "machine_id": server.clientIdentifier})
-    print(f"Using {server.name} from your Plex account. "
-          "Its address is looked up each time, so it can change.")
+    print(f"Using {server.name} (found through your Plex account; its address is looked up on plex.tv each run).")
     return 0
 
 

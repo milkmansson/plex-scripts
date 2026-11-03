@@ -6,10 +6,11 @@ from datetime import datetime, timedelta
 from types import SimpleNamespace as NS
 
 import pytest
+from plexapi.exceptions import NotFound
 
-from plextool import audit, dupes, playlists, resume, stale, watched
+from plextool import audit, common, dupes, playlists, resume, stale, watched
 from plextool.cli import build_parser
-from plextool.common import PlexToolError, confirm_typed, item_size, read_json, write_json
+from plextool.common import PlexToolError, confirm_typed, item_size, read_json, working, write_json
 
 NOW = datetime(2025, 6, 1)
 
@@ -23,6 +24,105 @@ def episode(show, n, size=100, views=0, added=None, last=None):
     return NS(type="episode", title=f"E{n}", grandparentTitle=show, seasonNumber=1, episodeNumber=n,
               guid=f"plex://episode/{show}{n}", media=[NS(parts=[part(size=size)])],
               viewCount=views, addedAt=added, lastViewedAt=last)
+
+
+# --- progress ------------------------------------------------------------
+
+def test_working_is_silent_when_quick(capsys):
+    with working("reading TV"):
+        pass
+    assert capsys.readouterr().err == ""
+
+
+def test_working_reports_when_slow(monkeypatch, capsys):
+    import time
+    monkeypatch.setattr(common, "FIRST_NOTICE", 0.05)
+    monkeypatch.setattr(common, "NOTICE_EVERY", 0.05)
+    with working("checking no-subs") as progress:
+        progress.detail = "3 of 9 items"
+        time.sleep(0.2)
+    err = capsys.readouterr().err
+    assert "still checking no-subs..." in err and "(3 of 9 items)" in err
+
+
+def test_verbose_hides_tokens(monkeypatch, capsys):
+    import logging
+    monkeypatch.setattr(common, "VERBOSE", False)
+    monkeypatch.setattr(common, "_SECRETS", {"s3cret"})
+    logger = logging.getLogger("plexapi")
+    old_handlers, old_level, old_prop = list(logger.handlers), logger.level, logger.propagate
+    try:
+        common.enable_verbose()
+        logger.debug("GET http://x:32400/library/sections/1/all?type=4&X-Plex-Token=abc123&a=b")
+        logger.debug("token is s3cret here")
+    finally:
+        logger.handlers[:], logger.level, logger.propagate = old_handlers, old_level, old_prop
+    err = capsys.readouterr().err
+    assert "GET http://x:32400/library/sections/1/all?type=4&X-Plex-Token=HIDDEN&a=b" in err
+    assert "abc123" not in err and "s3cret" not in err and "token is HIDDEN here" in err
+
+
+def test_verbose_flag_is_accepted_before_and_after_the_command():
+    parser = build_parser()
+    assert parser.parse_args(["-v", "stale"]).verbose_first is True
+    assert parser.parse_args(["stale", "-v"]).verbose is True
+    assert parser.parse_args(["stale"]).verbose is False
+
+
+def test_working_prints_start_and_finish_when_verbose(monkeypatch, capsys):
+    monkeypatch.setattr(common, "VERBOSE", True)
+    with working("reading TV"):
+        pass
+    err = capsys.readouterr().err
+    assert "reading TV..." in err and "finished reading TV in" in err
+
+
+def test_scan_can_turn_off_autoreload():
+    items = [NS(_autoReload=True), NS(_autoReload=True)]
+    section = NS(title="Movies", search=lambda **kw: items)
+    assert common.scan(section, autoreload=False, libtype="movie") is items
+    assert [i._autoReload for i in items] == [False, False]
+    other = [NS(_autoReload=True)]
+    common.scan(NS(title="TV", search=lambda **kw: other), libtype="show")
+    assert other[0]._autoReload is True
+
+
+def test_format_duration():
+    assert common.format_duration(4.24) == "4.2s"
+    assert common.format_duration(75) == "1m 15s"
+    assert common.format_duration(3700) == "1h 1m 40s"
+
+
+def test_total_time_shown_when_slow_or_verbose(monkeypatch, capsys):
+    from plextool import cli
+    monkeypatch.setattr(stale, "run", lambda args: 0)
+    monkeypatch.setattr(cli, "SHOW_TIME_AFTER", 0)
+    assert cli.main(["stale"]) == 0
+    assert "Finished in " in capsys.readouterr().err
+    monkeypatch.setattr(cli, "SHOW_TIME_AFTER", 3600)
+    cli.main(["stale"])
+    assert capsys.readouterr().err == ""
+    cli.main(["stale", "-v"])
+    assert "Finished in " in capsys.readouterr().err
+
+
+def test_plural():
+    assert common.plural(1, "match") == "1 match"
+    assert common.plural(0, "match") == "0 matches"
+    assert common.plural(4039, "match") == "4039 matches"
+    assert common.plural(2, "file") == "2 files"
+    assert common.plural(2, "subtitle file") == "2 subtitle files"
+    assert common.plural(3, "box") == "3 boxes"
+
+
+def test_describe_reply():
+    page = b'<?xml version="1.0"?><MediaContainer size="100" totalSize="5400" offset="200"><Video/></MediaContainer>'
+    assert common.describe_reply(200, page, 0.824) == "  <- 200, 100 records (201-300 of 5400), 103 B, 0.82s"
+    last = b'<MediaContainer size="1" totalSize="201" offset="200">'
+    assert "1 record (201-201 of 201)" in common.describe_reply(200, last, 0.1)
+    assert "(of 5)" in common.describe_reply(200, b'<MediaContainer size="0" totalSize="5">', 0.1)
+    assert common.describe_reply(200, b'<MediaContainer size="7">', 0.1).count("(") == 0
+    assert common.describe_reply(401, b"nope", 0.01) == "  <- 401, 4 B, 0.01s"
 
 
 # --- stale ---------------------------------------------------------------
@@ -39,8 +139,72 @@ def test_build_rows_groups_episodes_by_show():
              episode("Other", 1, 50)]
     rows = {r["name"]: r for r in stale.build_rows(items, "show")}
     assert rows["Show"] == {"name": "Show", "size": 300, "added": old, "last_viewed": new,
-                            "views": 3, "count": 2}
+                            "views": 3, "count": 2, "watchers": {"owner": new}}
     assert rows["Other"]["last_viewed"] is None
+
+
+def test_add_user_views_counts_other_users():
+    old, mid, new = datetime(2020, 1, 1), datetime(2022, 1, 1), datetime(2024, 1, 1)
+    rows = stale.build_rows([episode("Show", 1, 100, views=1, last=old),
+                             episode("Quiet", 1, 50), episode("Mine", 1, 70)], "show")
+    theirs = [episode("Show", 1, views=2, last=new), episode("Quiet", 1, views=1, last=mid),
+              episode("Hidden", 1, views=4, last=new), episode("Mine", 1, views=0)]
+    stale.add_user_views(rows, theirs, "show", "alice")
+    by_name = {r["name"]: r for r in rows}
+    assert by_name["Show"]["views"] == 3
+    assert by_name["Show"]["last_viewed"] == new
+    assert by_name["Show"]["watchers"] == {"owner": old, "alice": new}
+    assert stale.latest_watcher(by_name["Show"]) == "alice"
+    assert by_name["Quiet"]["views"] == 1 and by_name["Quiet"]["watchers"] == {"alice": mid}
+    assert by_name["Mine"]["views"] == 0 and by_name["Mine"]["watchers"] == {}
+    assert "Hidden" not in by_name
+    kept = stale.filter_rows(rows, NOW, unwatched=True)
+    assert [r["name"] for r in kept] == ["Mine"]
+
+
+def test_note_watcher_keeps_latest_and_handles_missing_dates():
+    row = {"watchers": {}}
+    stale.note_watcher(row, "bob", None)
+    assert row["watchers"] == {"bob": None} and stale.latest_watcher(row) is None
+    stale.note_watcher(row, "bob", datetime(2024, 1, 1))
+    stale.note_watcher(row, "bob", datetime(2023, 1, 1))
+    assert row["watchers"]["bob"] == datetime(2024, 1, 1)
+
+
+class FakeServer:
+    """Just enough of a PlexServer for stale.run(): sections of items by library title."""
+
+    def __init__(self, items_by_title):
+        self.items_by_title = items_by_title
+        self.library = self
+
+    def section(self, title):
+        if title not in self.items_by_title:
+            raise NotFound(title)
+        items = self.items_by_title[title]
+        return NS(title=title, TYPE="show", search=lambda **kw: items)
+
+
+def test_stale_run_counts_other_users(monkeypatch, capsys):
+    when = datetime(2024, 1, 1)
+    owner_items = [episode("Show", 1, 100), episode("Other", 1, 50)]
+    owner = FakeServer({"TV": owner_items})
+    alice = FakeServer({"TV": [episode("Show", 1, views=1, last=when)]})
+    bob = FakeServer({})  # TV is not shared with bob
+    section = NS(title="TV", TYPE="show", search=lambda **kw: owner_items)
+    monkeypatch.setattr(stale, "connect", lambda args: owner)
+    monkeypatch.setattr(stale, "pick_sections", lambda plex, names: [section])
+    monkeypatch.setattr(stale, "shared_users", lambda args, plex: ["alice", "bob"])
+    monkeypatch.setattr(stale, "user_server",
+                        lambda args, plex, name: {"alice": alice, "bob": bob, "me": owner}[name])
+    args = build_parser().parse_args(["stale", "--unwatched", "--all-users", "--user", "me", "--json"])
+    assert stale.run(args) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert [r["name"] for r in out["TV"]] == ["Other"]
+    args = build_parser().parse_args(["stale", "--all-users", "--json"])
+    assert stale.run(args) == 0
+    shown = {r["name"]: r for r in json.loads(capsys.readouterr().out)["TV"]}
+    assert shown["Show"]["watchers"] == {"alice": when.isoformat()}
 
 
 def test_filter_rows():

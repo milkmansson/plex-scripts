@@ -15,6 +15,7 @@ from .common import (
     paint,
     plural,
     read_json,
+    scan,
     write_json,
 )
 
@@ -37,7 +38,7 @@ def guid_lookup(plex, guids: set) -> dict:
     for section in plex.library.sections():
         libtype = wanted.get(section.TYPE)
         if libtype:
-            for item in section.search(libtype=libtype):
+            for item in scan(section, libtype=libtype):
                 if item.guid in guids:
                     found[item.guid] = item
     return found

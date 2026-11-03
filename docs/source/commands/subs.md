@@ -9,7 +9,12 @@ Three actions for subtitles:
 | [`fetch`](#fetch) | Search Plex's subtitle providers for a language and download one, with a chance to choose. |
 
 All three name files the same way (see [Naming](#naming)) and are a preview
-unless you pass `--commit`.
+unless `--commit` is passed.
+
+Handy when:
+- Subtitles are inside the MKV or MP4 and another player, or another server, cannot use them (`extract`).
+- Plex downloaded a subtitle but only Plex can show it, because it is not a file beside the video (`export`).
+- A title has no subtitles in the wanted language (`fetch`).
 
 ## Where each subtitle comes from
 
@@ -18,9 +23,9 @@ The three actions read from different places, which is easy to mix up:
 | Action | Where the subtitle comes from | What plextool connects to |
 | --- | --- | --- |
 | `extract` | A track **embedded in the video file** (MKV or MP4). | Nothing: it reads the file with `mkvextract` or `ffmpeg`. It only talks to Plex for the optional `--scan`. |
-| `fetch` | Plex's **subtitle providers on the internet**. Plex searches and downloads; plextool just asks it to. | Your Plex server. |
-| `fetch --export` | The same download, then **copied out of the Plex server**. | Your Plex server. |
-| `export` | Subtitles **Plex already has**, kept in its database from earlier downloads. | Your Plex server. |
+| `fetch` | Plex's **subtitle providers on the internet**. Plex searches and downloads; plextool just asks it to. | The Plex server. |
+| `fetch --export` | The same download, then **copied out of the Plex server**. | The Plex server. |
+| `export` | Subtitles **Plex already has**, kept in its database from earlier downloads. | The Plex server. |
 
 In short:
 - Only `extract` reads the video file.
@@ -37,7 +42,7 @@ In short:
 
 ## Tools for extract
 
-You only need the tools for the file types you use:
+Only the tools for the file types in use are needed:
 
 | Files | Needs |
 | --- | --- |
@@ -97,17 +102,17 @@ Names follow Plex's rules for external subtitles: the language code, then
 | --- | --- |
 | `DIRECTORY` | Where to search. Default is the current directory. |
 | `--types LIST` | File types to process: `mkv`, `mp4`, or `mkv,mp4` (default). |
-| `-y`, `--commit` | Write the files. Without it you get a preview. |
+| `-y`, `--commit` | Write the files. Without it only a preview is shown. |
 | `-f`, `--force` | Overwrite subtitle files that already exist. By default they are skipped. |
 | `--scan LIBRARY` | After extracting, ask Plex to scan this library so the files appear. |
-| `--scan-path PATH` | Folder to scan, as the Plex server sees it. Default is the directory you searched. Set this if the server mounts your media at a different path. |
+| `--scan-path PATH` | Folder to scan, as the Plex server sees it. Default is the directory searched. Set this if the server mounts the media at a different path. |
 
 Only `--scan` needs a Plex connection (`--token`, `--base-url`). The rest works
 without a server.
 
 ## export
 
-When you use Plex's "Search for subtitles", the result is stored in Plex's
+When Plex's "Search for subtitles" is used, the result is stored in Plex's
 database, not beside the video, and can't be reused elsewhere. `export` fetches
 those stored subtitles back from the Plex server and saves them as ordinary files
 next to the video. It does not read the video file and does not contact any
@@ -132,12 +137,12 @@ all its episodes), `-g/--guid`, `-n/--recent N`, or `--all`.
 | `--scan` | Afterwards, ask Plex to scan the folders that got new files. |
 | `-y`, `--commit` | Write the files. |
 
-This command has to be able to reach the video files. If you run it on another
-machine, or Plex sees your media under a different path, use `--map`. A folder
+This command has to be able to reach the video files. If it runs on another
+machine, or Plex sees the media under a different path, use `--map`. A folder
 that can't be found is reported rather than created.
 
 Each item is loaded from the server to read its subtitle list, so `--all` is
-slow on big libraries. Narrow it with `-l`, `-t` or `-n` when you can.
+slow on big libraries. Narrow it with `-l`, `-t` or `-n` where possible.
 
 ## fetch
 
@@ -163,13 +168,13 @@ work:
 | Mode | What happens |
 | --- | --- |
 | `--list` | Shows the candidates for each item and stops. Nothing is downloaded. |
-| `--choose` | Shows the candidates for each item and asks you which to download. Enter takes #1, a number takes that one, `s` skips the item, `q` stops. |
+| `--choose` | Shows the candidates for each item and asks which to download. Enter takes #1, a number takes that one, `s` skips the item, `q` stops. |
 | (neither) | Downloads the top-ranked candidate automatically. |
 
 Candidates are ranked with perfect matches first, then by download count
 (score). Each line shows the number, a `*` for a perfect match, the score, the
 provider, the format, forced/SDH flags, and the subtitle's own title (often the
-release name, which helps you match it to your file).
+release name, which helps match it to the file).
 
 ```
   1 * score 20      OpenSubtitles    srt                Some.Movie.2020.1080p.BluRay

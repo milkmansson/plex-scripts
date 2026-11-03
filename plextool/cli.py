@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 
 from . import (
     __version__,
@@ -20,7 +21,10 @@ from . import (
     subs,
     watched,
 )
-from .common import PlexToolError
+from .common import PlexToolError, enable_verbose, format_duration
+
+# Seconds a command must take before its total time is printed (always printed with --verbose).
+SHOW_TIME_AFTER = 5
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,6 +35,8 @@ def build_parser() -> argparse.ArgumentParser:
                "Anything that changes your server is a dry run unless you pass --commit.",
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("-v", "--verbose", dest="verbose_first", action="store_true",
+                        help="print each request sent to Plex, with its reply, on stderr (also accepted after the command)")
     subparsers = parser.add_subparsers(dest="command", metavar="command")
     for module in (auth, server, status, scan, recent, dupes, stale, audit, watched, resume, playlists, subs):
         module.add_parser(subparsers)
@@ -43,8 +49,16 @@ def main(argv: list[str] | None = None) -> int:
     if not args.command:
         parser.print_help()
         return 0
+    verbose = args.verbose_first or getattr(args, "verbose", False)
+    if verbose:
+        enable_verbose()
+    started = time.monotonic()
     try:
-        return args.run(args)
+        status = args.run(args)
+        elapsed = time.monotonic() - started
+        if verbose or elapsed >= SHOW_TIME_AFTER:
+            print(f"Finished in {format_duration(elapsed)}", file=sys.stderr)
+        return status
     except PlexToolError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2

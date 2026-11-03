@@ -12,7 +12,7 @@ $ plextool --help
 $ plextool recent --help
 ```
 
-Commands that change anything do a dry run unless you pass `--commit`.
+Commands that change anything do a dry run unless `--commit` is given.
 
 ```{toctree}
 :maxdepth: 1

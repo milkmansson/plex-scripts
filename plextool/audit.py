@@ -16,6 +16,8 @@ from .common import (
     paint,
     pick_sections,
     plural,
+    scan,
+    working,
 )
 
 LOW_RES = {"sd", "480", "576", "360", "240"}
@@ -82,12 +84,14 @@ def run_check(name: str, items: list, lang: str | None) -> list[dict]:
     """Apply one check to items; returns [{'item': description, 'reason': ...}]."""
     func, _, _, needs_full = CHECKS[name]
     found = []
-    for item in items:
-        if needs_full:
-            item.reload()
-        reason = func(item, lang)
-        if reason:
-            found.append({"item": describe(item), "reason": reason})
+    with working(f"checking {name}") as progress:
+        for number, item in enumerate(items, start=1):
+            progress.detail = f"{number} of {len(items)} items"
+            if needs_full:
+                item.reload()
+            reason = func(item, lang)
+            if reason:
+                found.append({"item": describe(item), "reason": reason})
     return found
 
 
@@ -124,7 +128,7 @@ def run(args: argparse.Namespace) -> int:
         for name in names:
             level = FILE_LEVEL[section.TYPE] if CHECKS[name][1] else section.TYPE
             if level not in cache:
-                cache[level] = section.search(libtype=level)
+                cache[level] = scan(section, libtype=level)
             report.setdefault(name, {})[section.title] = run_check(name, cache[level], args.lang)
 
     if args.json:

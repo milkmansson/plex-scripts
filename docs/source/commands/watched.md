@@ -8,7 +8,12 @@ Only the watched flag moves. View counts, last-watched dates and resume
 positions do not. Watchlists live on plex.tv, not on the server, so they are
 not covered.
 
-All commands that change anything are dry runs unless you pass `--commit`.
+All commands that change anything are dry runs unless `--commit` is passed.
+
+Handy when:
+- A shared account is being split up, or someone has made a new Plex account (`copy`).
+- The server is about to be rebuilt, or moved to a new one, and watched state should be kept (`export` and `import`).
+- A whole show or movie needs marking watched in one go (`mark`).
 
 ## copy
 

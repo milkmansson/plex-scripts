@@ -1,3 +1,3 @@
 """plextool: maintenance helpers for a Plex Media Server, built on python-plexapi."""
 
-__version__ = "3.0.1"
+__version__ = "3.1.0"

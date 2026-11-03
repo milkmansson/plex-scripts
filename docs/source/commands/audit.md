@@ -1,6 +1,12 @@
 # plextool audit
 
-Reports problems across your libraries. Read-only.
+Reports problems across the libraries. Read-only.
+
+Handy when:
+- A list is needed of what Plex could not match, so it can be fixed before it gets lost in the library.
+- Files were moved or deleted on disk and the items that now point at nothing need finding.
+- Subtitles or audio tracks are about to be added and the items that lack a language need finding.
+- A library is being tidied and the low-resolution items, or those with no poster or summary, are wanted.
 
 ```console
 $ plextool audit                                  # the checks that need no extra option

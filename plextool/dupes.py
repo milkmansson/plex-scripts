@@ -20,6 +20,7 @@ from .common import (
     pick_sections,
     plural,
     pretty_size,
+    scan,
 )
 
 
@@ -27,10 +28,10 @@ def find_duplicates(section) -> list:
     """Items in a section with more than one media version."""
     level = FILE_LEVEL[section.TYPE]
     try:
-        return section.search(libtype=level, duplicate=True)
+        return scan(section, libtype=level, duplicate=True)
     except (BadRequest, NotFound):
         # The server didn't accept the duplicate filter; check every item instead.
-        return [item for item in section.search(libtype=level) if len(item.media) > 1]
+        return [item for item in scan(section, libtype=level) if len(item.media) > 1]
 
 
 def summarise(item) -> dict:
