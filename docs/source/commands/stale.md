@@ -3,6 +3,11 @@
 Finds what is taking disk space and not being watched. Movies are listed
 individually; TV is summed per show. Read-only.
 
+Handy when:
+- The disk is filling up and you want the biggest things that nobody watches.
+- You want to know what has sat idle for years before you delete anything.
+- The server is shared, and you do not want to flag something another user watches (`--all-users`).
+
 ```console
 $ plextool stale --unwatched --age 365 --min-size 5GB
 $ plextool stale -l Movies --idle 730 -n 20

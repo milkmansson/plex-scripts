@@ -2,6 +2,12 @@
 
 Reports problems across your libraries. Read-only.
 
+Handy when:
+- You want a list of what Plex could not match, so you can fix it before it gets lost in the library.
+- You moved or deleted files on disk and want to know which items now point at nothing.
+- You are about to add subtitles or audio tracks and want to know which items lack a language.
+- You are tidying up and want the low-resolution items, or those with no poster or summary.
+
 ```console
 $ plextool audit                                  # the checks that need no extra option
 $ plextool audit -c missing-files -c unmatched

@@ -11,6 +11,11 @@ Three actions for subtitles:
 All three name files the same way (see [Naming](#naming)) and are a preview
 unless you pass `--commit`.
 
+Handy when:
+- Subtitles are inside the MKV or MP4 and another player, or another server, cannot use them (`extract`).
+- Plex downloaded a subtitle but only Plex can show it, because it is not a file beside the video (`export`).
+- A title has no subtitles in the language you want (`fetch`).
+
 ## Where each subtitle comes from
 
 The three actions read from different places, which is easy to mix up:

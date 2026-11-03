@@ -3,6 +3,11 @@
 Lists, and optionally clears, entries stuck in Continue Watching. Works on the
 token owner's list.
 
+Handy when:
+- Continue Watching is full of things you gave up on long ago.
+- Something you finished still shows as in progress.
+- You want to clear old entries in one go instead of one by one in the app.
+
 ```console
 $ plextool resume                              # list partly-watched items
 $ plextool resume --idle 90 --clear watched    # preview

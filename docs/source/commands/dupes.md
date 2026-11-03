@@ -4,6 +4,11 @@ Lists movies and episodes for which Plex holds more than one file, so you can
 decide what to delete. It is read-only unless you use `--keep`. Using the Plex web UI for this is slow,
 and awkward with spaces or non-Latin characters in file names.
 
+Handy when:
+- A title appears twice, or a folder holds two versions of the same movie or episode.
+- You re-encoded or upgraded files and the old copies are still there.
+- You need disk space and want the duplicates that would free the most first (`--sort size`).
+
 ```console
 $ plextool dupes [-l NAME ...] [-n LIMIT] [--sort title|size] [--json] [--keep POLICY [--commit]]
 ```

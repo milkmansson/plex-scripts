@@ -4,6 +4,12 @@ Asks the server to scan libraries for new files, refresh metadata, and tidy up.
 This is the step you need after moving files around or after
 [`plextool subs extract`](subs.md).
 
+Handy when:
+- You moved or added files outside Plex and the library has not noticed.
+- You just ran `plextool subs extract` and Plex needs to see the new subtitle files.
+- Metadata for a library looks out of date and you want it refreshed.
+- The trash needs emptying, or the database needs optimising.
+
 ```console
 $ plextool scan                                     # scan every library
 $ plextool scan -l Movies --path /mnt/media/Movies/New --wait

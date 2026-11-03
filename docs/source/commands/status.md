@@ -3,6 +3,11 @@
 A quick look at the server: version, each library's size, and what is playing.
 Read-only.
 
+Handy when:
+- You want a quick check that the server is up, and which version it runs.
+- You want to see who is watching, and whether it is transcoding, before a restart or a scan.
+- You want to see which libraries are scanning right now.
+
 ```console
 $ plextool status
 My Server  Plex Media Server 1.x.x on Linux

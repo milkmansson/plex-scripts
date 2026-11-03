@@ -10,6 +10,11 @@ not covered.
 
 All commands that change anything are dry runs unless you pass `--commit`.
 
+Handy when:
+- A shared account is being split up, or someone has made a new Plex account (`copy`).
+- You are about to rebuild the server, or move to a new one, and want to keep watched state (`export` and `import`).
+- You want a whole show or movie marked watched in one go (`mark`).
+
 ## copy
 
 Copy one user's watched state to another. Useful when a shared account is being

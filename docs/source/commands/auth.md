@@ -3,6 +3,12 @@
 Sign in to Plex from the command line without finding or pasting a token, and
 manage what gets saved on your computer.
 
+Handy when:
+- You are setting up plextool for the first time and do not want to dig out a token by hand.
+- You are on a machine with no browser. Open the link, or scan the QR code, on another device.
+- You want to see which devices are signed in to your account and remove old ones.
+- You are handing the machine over, and want the saved login and keys wiped.
+
 ```console
 $ plextool auth login
 Signing in for a classic token: it never expires until you revoke it in your Plex account.

@@ -3,6 +3,12 @@
 Choose which Plex server the other commands talk to, so you don't need
 `--base-url` every time.
 
+Handy when:
+- You are setting plextool up and Plex runs on another machine.
+- The server's address changes (for example with DHCP) and you want plextool to keep finding it.
+- You have more than one server and want to switch between them.
+- You have no internet access and must reach the server directly.
+
 ```console
 $ plextool server find
 On your Plex account

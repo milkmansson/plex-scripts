@@ -2,6 +2,11 @@
 
 Back up and restore the token owner's video playlists.
 
+Handy when:
+- You are about to rebuild the server, or move to a new one, and want to keep your playlists.
+- Playlists went missing after a library was removed and added again.
+- You want to copy playlists to another server that has the same items.
+
 ```console
 $ plextool playlists list
 $ plextool playlists export playlists.json
