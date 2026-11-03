@@ -1,13 +1,13 @@
 # plextool scan
 
 Asks the server to scan libraries for new files, refresh metadata, and tidy up.
-This is the step you need after moving files around or after
+This is the step needed after moving files around or after
 [`plextool subs extract`](subs.md).
 
 Handy when:
-- You moved or added files outside Plex and the library has not noticed.
-- You just ran `plextool subs extract` and Plex needs to see the new subtitle files.
-- Metadata for a library looks out of date and you want it refreshed.
+- Files were moved or added outside Plex and the library has not noticed.
+- `plextool subs extract` has just run and Plex needs to see the new subtitle files.
+- Metadata for a library looks out of date and needs refreshing.
 - The trash needs emptying, or the database needs optimising.
 
 ```console
@@ -29,4 +29,4 @@ $ plextool scan --empty-trash --optimize
 
 With only maintenance options (`--empty-trash`, `--optimize`, `--clean-bundles`)
 no scan is started. Scans run on the server, so the command returns quickly
-unless you use `--wait`.
+unless `--wait` is used.

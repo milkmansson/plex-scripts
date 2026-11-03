@@ -4,9 +4,9 @@ Finds what is taking disk space and not being watched. Movies are listed
 individually; TV is summed per show. Read-only.
 
 Handy when:
-- The disk is filling up and you want the biggest things that nobody watches.
-- You want to know what has sat idle for years before you delete anything.
-- The server is shared, and you do not want to flag something another user watches (`--all-users`).
+- The disk is filling up and the biggest things that nobody watches are wanted.
+- What has sat idle for years needs checking before anything is deleted.
+- The server is shared, and something another user watches should not be flagged (`--all-users`).
 
 ```console
 $ plextool stale --unwatched --age 365 --min-size 5GB
@@ -34,12 +34,12 @@ including duplicate versions.
 ## Whose viewing counts
 
 By default, "watched" means watched by the **token owner** only. On a shared server
-that is rarely what you want, since something the owner has never opened may be a
+that is rarely what is wanted, since something the owner has never opened may be a
 favourite of another user.
 
 `--all-users` also counts what every user the server is shared with has watched, and
-`--user NAME` (repeatable) does the same for the people you name. Each user adds one
-extra pass over each library, so the more users you include, the longer it takes. A title then counts
+`--user NAME` (repeatable) does the same for the people named. Each user adds one
+extra pass over each library, so the more users are included, the longer it takes. A title then counts
 as watched, and its last-watched date is the latest, across everyone included. So
 `--unwatched` means no one included has watched it, and `--idle DAYS` means none of them
 has watched it in that time. The text output says who watched it last:

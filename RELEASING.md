@@ -4,7 +4,7 @@ Releases are published to PyPI by a GitHub Actions workflow
 (`.github/workflows/publish.yml`) when a GitHub release is created. It uses
 PyPI's trusted publishing, so there are no API tokens to create, store or leak.
 
-| What you do on GitHub | What the workflow does |
+| Action on GitHub | What the workflow does |
 | --- | --- |
 | Create a release marked **pre-release** | Publishes to TestPyPI. |
 | Create a full release, or change a pre-release into one | Publishes to PyPI. |
@@ -32,8 +32,8 @@ exist yet: use a *pending publisher*.
 ### 2. Create the two environments on GitHub
 
 In the repository, go to Settings, then Environments, and create `pypi` and
-`testpypi`. For `pypi`, add yourself under "Required reviewers" so a full release
-waits for your approval before anything is uploaded. Adding a reviewer to `testpypi`
+`testpypi`. For `pypi`, add the releasing account under "Required reviewers" so a full release
+waits for approval before anything is uploaded. Adding a reviewer to `testpypi`
 too works the same way, but is optional: it is only a rehearsal.
 
 ## Making a release

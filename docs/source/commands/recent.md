@@ -4,9 +4,9 @@ Plex has no way to edit the Recently Added lists. This command changes the
 "added at" date on items, which moves them forward or back in those lists.
 
 Handy when:
-- You recreated the database and the real newest content needs to be at the front.
-- You deleted duplicate files, Plex rescanned, and everything came back as "new".
-- You reorganised files on disk and Plex treated them as new additions.
+- The database was recreated and the real newest content needs to be at the front.
+- Duplicate files were deleted, Plex rescanned, and everything came back as "new".
+- Files were reorganised on disk and Plex treated them as new additions.
 
 ```console
 $ plextool recent (--title T | --guid ID | --recent N) (--date D | --release | --now | --shift OFFSET) [options]
@@ -87,9 +87,9 @@ $ plextool recent -l "TV Shows" --level episode -n 20 --shift=-7d --commit
 
 ## Notes
 
-- Dates you give are read as local time.
+- Dates given are read as local time.
 - A title search matches substrings, so "Lord" finds "Lord of the Rings",
-  "Lord of the Flies" and "Sealord". Review the dry run, then select the one
-  you want by `--guid`.
+  "Lord of the Flies" and "Sealord". Review the dry run, then select the right
+  one by `--guid`.
 - Searching by agent ID (`imdb://`, etc.) checks each item's IDs locally, which
   is slower on big libraries than a Plex ID lookup.

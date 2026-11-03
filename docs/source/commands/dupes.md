@@ -1,13 +1,13 @@
 # plextool dupes
 
-Lists movies and episodes for which Plex holds more than one file, so you can
-decide what to delete. It is read-only unless you use `--keep`. Using the Plex web UI for this is slow,
+Lists movies and episodes for which Plex holds more than one file, so that
+what to delete can be decided. It is read-only unless `--keep` is used. Using the Plex web UI for this is slow,
 and awkward with spaces or non-Latin characters in file names.
 
 Handy when:
 - A title appears twice, or a folder holds two versions of the same movie or episode.
-- You re-encoded or upgraded files and the old copies are still there.
-- You need disk space and want the duplicates that would free the most first (`--sort size`).
+- Files were re-encoded or upgraded and the old copies are still there.
+- Disk space is needed and the duplicates that would free the most should come first (`--sort size`).
 
 ```console
 $ plextool dupes [-l NAME ...] [-n LIMIT] [--sort title|size] [--json] [--keep POLICY [--commit]]
@@ -71,11 +71,11 @@ size, not a recommendation about which copy to keep.
 
 ```console
 $ plextool dupes -l Movies --keep best-resolution            # preview
-$ plextool dupes -l Movies --keep best-resolution --commit   # asks you to type DELETE
+$ plextool dupes -l Movies --keep best-resolution --commit   # asks for DELETE to be typed
 ```
 
-This **permanently deletes files from disk**. It is a preview unless you pass
-`--commit`, and then you must type `DELETE` to continue (`--assume-yes` skips
+This **permanently deletes files from disk**. It is a preview unless `--commit` is
+passed, and then `DELETE` must be typed to continue (`--assume-yes` skips
 that for scripts). Items with a multi-part version are skipped, since deleting
 one part would break the item. Plex must have "Allow media deletion" turned on
 (Settings > Library), or the server refuses.
