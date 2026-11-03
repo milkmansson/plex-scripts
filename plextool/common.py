@@ -24,6 +24,7 @@ from plexapi.server import PlexServer
 from requests.exceptions import RequestException
 
 DEFAULT_URL = "http://localhost:32400"
+DEFAULT_TIMEOUT = 10   # seconds to wait for the default address, which may not be a Plex server at all
 TOKEN_ENV = "PLEX_TOKEN"
 TOKEN_CMD_ENV = "PLEX_TOKEN_CMD"
 SIGN_IN_AGAIN = ("It may have been revoked or have expired. "
@@ -203,11 +204,12 @@ class Working:
 
 
 @contextmanager
-def working(label: str):
+def working(label: str, first: float | None = None):
     """Tell the user on stderr, now and then, that a slow step is still going.
 
     Quick steps print nothing. After FIRST_NOTICE seconds a line like
     'still reading TV Shows... 10s' appears, then another every NOTICE_EVERY seconds.
+    `first` replaces FIRST_NOTICE for steps that should speak up sooner.
     stderr is used so --json output on stdout stays clean.
     """
     state = Working()
@@ -215,7 +217,7 @@ def working(label: str):
     started = time.monotonic()
 
     def notify():
-        wait = FIRST_NOTICE
+        wait = FIRST_NOTICE if first is None else first
         while not done.wait(wait):
             detail = f" ({state.detail})" if state.detail else ""
             print(f"  still {label}... {int(time.monotonic() - started)}s{detail}", file=sys.stderr, flush=True)
@@ -347,6 +349,20 @@ def _find_token(args: argparse.Namespace) -> tuple[str, str]:
                         f"or set ${TOKEN_ENV}.")
 
 
+def short_reason(error: Exception) -> str:
+    """A one-line reason for a failed connection, without requests' long wording."""
+    text = str(error)
+    if isinstance(error, requests.exceptions.Timeout) or "timed out" in text:
+        return "no answer (timed out)"
+    if "Connection refused" in text:
+        return "connection refused (nothing is listening there)"
+    if "Name or service not known" in text or "Temporary failure in name resolution" in text:
+        return "the name could not be resolved"
+    if "No route to host" in text or "Network is unreachable" in text:
+        return "no route to the host"
+    return text if len(text) <= 150 else text[:147] + "..."
+
+
 def connect(args: argparse.Namespace) -> PlexServer:
     """Connect to the server named in args, with friendly errors.
 
@@ -355,18 +371,26 @@ def connect(args: argparse.Namespace) -> PlexServer:
     """
     args.token, source = resolve_token(args)
     url = args.base_url or os.environ.get(URL_ENV)
+    chosen = bool(url)
     try:
         if url:
             plex = PlexServer(url, args.token)
         else:
             from . import server  # imported here because server itself uses this module
             saved = server.load_saved()
-            plex = server.connect_saved(saved, args.token) if saved else PlexServer(DEFAULT_URL, args.token)
+            chosen = bool(saved)
+            if saved:
+                plex = server.connect_saved(saved, args.token)
+            else:
+                with working(f"trying {DEFAULT_URL}, as no server is chosen (see 'plextool server use')", first=3):
+                    plex = PlexServer(DEFAULT_URL, args.token, timeout=DEFAULT_TIMEOUT)
     except Unauthorized:
         hint = SIGN_IN_AGAIN if source == "saved login" else "Check that token, or use 'plextool auth login'."
         raise PlexToolError(f"The Plex server rejected the token from {source} (401). {hint}") from None
     except RequestException as e:
-        raise PlexToolError(f"Could not reach {url or DEFAULT_URL}: {e}") from None
+        hint = "" if chosen else (" No server is chosen, so this default was tried. "
+                                  "Run 'plextool server find', then 'plextool server use'.")
+        raise PlexToolError(f"Could not reach {url or DEFAULT_URL}: {short_reason(e)}.{hint}") from None
     args.base_url = plex._baseurl
     return plex
 

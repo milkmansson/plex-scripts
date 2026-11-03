@@ -33,10 +33,10 @@ def resource(name="Home", machine_id="m1", url="http://10.0.0.5:32400"):
 
 
 def test_default_is_localhost(config):
-    with mock.patch.object(common, "PlexServer", side_effect=lambda u, t: fake_plex(u)) as ps:
+    with mock.patch.object(common, "PlexServer", side_effect=lambda u, t, timeout=None: fake_plex(u)) as ps:
         args = conn_args()
         common.connect(args)
-    ps.assert_called_once_with(common.DEFAULT_URL, "tok")
+    ps.assert_called_once_with(common.DEFAULT_URL, "tok", timeout=common.DEFAULT_TIMEOUT)
     assert args.base_url == common.DEFAULT_URL
 
 

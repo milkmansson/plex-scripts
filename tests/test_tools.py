@@ -115,6 +115,50 @@ def test_plural():
     assert common.plural(3, "box") == "3 boxes"
 
 
+def _connect_failing(monkeypatch, error, saved=None, url=None):
+    monkeypatch.setattr(common, "resolve_token", lambda args: ("tok", "test"))
+    monkeypatch.setattr("plextool.server.load_saved", lambda: saved)
+
+    def refuse(*a, **kw):
+        raise error
+    monkeypatch.setattr(common, "PlexServer", refuse)
+    args = NS(base_url=url, token=None, token_file=None)
+    with pytest.raises(PlexToolError) as raised:
+        common.connect(args)
+    return str(raised.value)
+
+
+def test_connect_without_a_chosen_server_says_so(monkeypatch):
+    import requests
+    monkeypatch.delenv("PLEX_URL", raising=False)
+    message = _connect_failing(monkeypatch, requests.exceptions.ConnectTimeout("Connection to localhost timed out"))
+    assert message.startswith("Could not reach http://localhost:32400: no answer (timed out).")
+    assert "No server is chosen" in message and "plextool server use" in message
+    assert "HTTPConnectionPool" not in message
+
+
+def test_connect_with_an_explicit_url_does_not_blame_the_default(monkeypatch):
+    import requests
+    monkeypatch.delenv("PLEX_URL", raising=False)
+    error = requests.exceptions.ConnectionError("Failed to establish a new connection: [Errno 111] Connection refused")
+    message = _connect_failing(monkeypatch, error, url="http://nas:32400")
+    assert message == "Could not reach http://nas:32400: connection refused (nothing is listening there)."
+
+
+def test_default_connect_uses_a_short_timeout(monkeypatch):
+    monkeypatch.delenv("PLEX_URL", raising=False)
+    monkeypatch.setattr(common, "resolve_token", lambda args: ("tok", "test"))
+    monkeypatch.setattr("plextool.server.load_saved", lambda: None)
+    seen = {}
+
+    def fake(url, token, timeout=None):
+        seen.update(url=url, timeout=timeout)
+        return NS(_baseurl=url)
+    monkeypatch.setattr(common, "PlexServer", fake)
+    common.connect(NS(base_url=None, token=None, token_file=None))
+    assert seen == {"url": "http://localhost:32400", "timeout": common.DEFAULT_TIMEOUT}
+
+
 def test_describe_reply():
     page = b'<?xml version="1.0"?><MediaContainer size="100" totalSize="5400" offset="200"><Video/></MediaContainer>'
     assert common.describe_reply(200, page, 0.824) == "  <- 200, 100 records (201-300 of 5400), 103 B, 0.82s"

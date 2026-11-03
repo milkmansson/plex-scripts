@@ -49,6 +49,11 @@ In this order, the first one found wins:
 3. The server saved with `server use`.
 4. `http://localhost:32400`.
 
+The last one is only a guess, used when nothing has been chosen. It is given 10 seconds
+to answer. After 3 seconds plextool prints `still trying http://localhost:32400, as no
+server is chosen`, and if it fails the error says that no server is chosen and points
+to `server find` and `server use`.
+
 ## Which address is used
 
 A server chosen by name has several addresses (see `server find`). Each time a
