@@ -33,7 +33,8 @@ exist yet: use a *pending publisher*.
 
 In the repository, go to Settings, then Environments, and create `pypi` and
 `testpypi`. For `pypi`, add yourself under "Required reviewers" so a full release
-waits for your approval before anything is uploaded.
+waits for your approval before anything is uploaded. Adding a reviewer to `testpypi`
+too works the same way, but is optional: it is only a rehearsal.
 
 ## Making a release
 
@@ -41,7 +42,8 @@ waits for your approval before anything is uploaded.
    The workflow stops if they differ, or if they differ from the tag.
 2. Commit and merge to `main`.
 3. Rehearse on TestPyPI first. On GitHub, create a release with the tag
-   `vX.Y.Z` and tick **Set as a pre-release**. Check the project page at
+   `vX.Y.Z` and tick **Set as a pre-release**. If `testpypi` has a required
+   reviewer, open the workflow run and approve the deployment. Check the project page at
    <https://test.pypi.org/project/plextool/> and try an install:
    ```console
    $ python3 -m venv /tmp/tt

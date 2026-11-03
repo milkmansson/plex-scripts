@@ -72,13 +72,11 @@ The `plextool` commands that change anything do a dry run unless you pass
 
 ## Quick start
 
-Download the code and install it. This needs `git` and `python` installed as a prerequisite:
+Install it from PyPI. This needs `python` installed as a prerequisite:
 
 ```console
-$ git clone https://github.com/milkmansson/plextool.git
-$ cd plextool
 $ python3 -m venv .venv && source .venv/bin/activate   # optional: keeps plextool's packages separate
-$ pip install '.[qr]'               # '[qr]' adds a QR code to the sign-in; leave it off if you don't want one
+$ pip install 'plextool[qr]'        # '[qr]' adds a QR code to the sign-in; leave it off if you don't want one
 $ plextool auth login               # open the link it prints (or scan the QR code) and approve
 $ plextool server find              # servers on your Plex account and on your network
 $ plextool server use "My Server"   # one of the names from the list
@@ -146,10 +144,16 @@ FFmpeg (`ffmpeg`, `ffprobe`) for MP4 files. You only need the ones for the file 
 you use.
 
 ```console
-$ git clone https://github.com/milkmansson/plextool.git     # skip if you already have the code
-$ cd plextool
-$ pip install .            # installs the `plextool` command
+$ pip install plextool     # installs the `plextool` command
 $ plextool --help
+```
+
+To install from a checkout instead (this needs `git`):
+
+```console
+$ git clone https://github.com/milkmansson/plextool.git
+$ cd plextool
+$ pip install .
 ```
 
 To run from a checkout without installing, `pip install -r requirements.txt`
