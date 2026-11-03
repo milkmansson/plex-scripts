@@ -1,0 +1,34 @@
+# plextool
+
+Maintenance helpers for a Plex Media Server: refresh and scan libraries, reorder Recently
+Added, find duplicates and stale content, audit libraries, copy watched state, back up
+playlists and manage subtitles.
+
+Install with `pip install plextool` (see the
+[README](https://github.com/milkmansson/plextool#readme) for setup and connecting).
+Every command also explains itself on the command line:
+
+```console
+$ plextool --help
+$ plextool recent --help
+```
+
+Commands that change anything do a dry run unless you pass `--commit`.
+
+```{toctree}
+:maxdepth: 1
+:caption: Commands
+
+commands/auth
+commands/server
+commands/status
+commands/scan
+commands/recent
+commands/dupes
+commands/stale
+commands/audit
+commands/watched
+commands/resume
+commands/playlists
+commands/subs
+```

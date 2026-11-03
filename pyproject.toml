@@ -32,7 +32,7 @@ dev = ["pytest", "ruff", "segno"]
 
 [project.urls]
 Homepage = "https://github.com/milkmansson/plextool"
-Documentation = "https://github.com/milkmansson/plextool#readme"
+Documentation = "https://plextool.readthedocs.io/"
 Source = "https://github.com/milkmansson/plextool"
 Issues = "https://github.com/milkmansson/plextool/issues"
 
