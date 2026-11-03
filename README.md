@@ -51,7 +51,7 @@ plextool is a CLI toolkit for looking after a Plex Media Server: fixing things P
 - **Script Plex.** Reports can print JSON, and exports can go through a pipe, so the output
   feeds other tools.
 
-> [!INFORMATION]
+> [!IMPORTANT]
 > Everything that changes the server is a preview until `--commit` is passed. plextool uses Plex's API and
 > never edits the Plex database file. It signs in through a browser with
 > [`plextool auth`](https://plextool.readthedocs.io/en/latest/commands/auth.html), and works against a server on the same machine, across the
