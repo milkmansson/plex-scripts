@@ -5,7 +5,21 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import __version__, audit, dupes, playlists, recent, resume, scan, stale, status, subs, watched
+from . import (
+    __version__,
+    audit,
+    auth,
+    dupes,
+    playlists,
+    recent,
+    resume,
+    scan,
+    server,
+    stale,
+    status,
+    subs,
+    watched,
+)
 from .common import PlexToolError
 
 
@@ -13,12 +27,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="plextool", description="Maintenance helpers for a Plex Media Server.",
         epilog="Run 'plextool COMMAND --help' for a command's options and examples.\n"
-               "Set PLEX_TOKEN (and PLEX_URL if the server isn't on localhost) to avoid typing them.\n"
+               "Run 'plextool auth login' once to sign in, then 'plextool server find' if the server isn't on localhost.\n"
                "Anything that changes your server is a dry run unless you pass --commit.",
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", metavar="command")
-    for module in (status, scan, recent, dupes, stale, audit, watched, resume, playlists, subs):
+    for module in (auth, server, status, scan, recent, dupes, stale, audit, watched, resume, playlists, subs):
         module.add_parser(subparsers)
     return parser
 

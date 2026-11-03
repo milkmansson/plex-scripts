@@ -1,18 +1,40 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "plextool"
-version = "2.3.0"
+version = "3.0.0"
 description = "Maintenance helpers for a Plex Media Server"
-readme = "README.md"
-license = { file = "LICENSE" }
+keywords = ["plex", "plex-media-server", "plexapi", "recently-added", "duplicates", "watched", "subtitles", "cli"]
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Milkmansson" }]
 requires-python = ">=3.9"
-dependencies = ["plexapi>=4.15"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: System Administrators",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Video",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = ["plexapi>=4.18", "pyjwt[crypto]"]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+qr = ["segno"]
+dev = ["pytest", "ruff", "segno"]
+
+[project.urls]
+Homepage = "https://github.com/milkmansson/plextool"
+Documentation = "https://plextool.readthedocs.io/"
+Source = "https://github.com/milkmansson/plextool"
+Issues = "https://github.com/milkmansson/plextool/issues"
 
 [project.scripts]
 plextool = "plextool.cli:main"

@@ -21,7 +21,7 @@ Exactly one of:
 | Option | Meaning |
 | --- | --- |
 | `-t`, `--title TEXT` | Titles containing TEXT. The year is not part of the title; Plex stores it separately. |
-| `-g`, `--guid ID` | One item by Plex ID (`plex://movie/...`) or agent ID (`imdb://tt...`, `tmdb://...`, `tvdb://...`). Also `-p`/`--plex-id`. |
+| `-g`, `--guid ID` | One item by Plex ID (`plex://movie/...`) or agent ID (`imdb://tt...`, `tmdb://...`, `tvdb://...`). |
 | `-n`, `--recent N` | The N most recently added items, per library. |
 
 Narrow it down with:
@@ -47,7 +47,7 @@ Future dates work. They put the item at the front until that date passes.
 
 ## Writing
 
-`-y`, `--commit` (also `--confirm`) applies the changes.
+`-y`, `--commit` applies the changes.
 
 By default the new date is **locked** in Plex, the same as editing the date in
 the web UI, so a later rescan or metadata refresh leaves it alone. Pass

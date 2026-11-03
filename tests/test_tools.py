@@ -1,3 +1,6 @@
+import io
+import json
+import sys
 from argparse import ArgumentTypeError
 from datetime import datetime, timedelta
 from types import SimpleNamespace as NS
@@ -6,7 +9,7 @@ import pytest
 
 from plextool import audit, dupes, playlists, resume, stale, watched
 from plextool.cli import build_parser
-from plextool.common import PlexToolError, confirm_typed, item_size
+from plextool.common import PlexToolError, confirm_typed, item_size, read_json, write_json
 
 NOW = datetime(2025, 6, 1)
 
@@ -196,3 +199,29 @@ def test_audit_requires_lang():
     args = build_parser().parse_args(["audit", "-T", "x", "-c", "no-subs"])
     with pytest.raises(PlexToolError):
         args.run(args)
+
+
+def test_write_json_to_stdout_keeps_messages_out_of_the_data(capsys):
+    stream = write_json("-", {"a": 1})
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == {"a": 1}
+    assert stream is sys.stderr
+
+
+def test_write_and_read_json_file(tmp_path, capsys):
+    path = str(tmp_path / "x.json")
+    assert write_json(path, {"b": "é"}) is sys.stdout
+    assert read_json(path) == {"b": "é"}
+
+
+def test_read_json_from_stdin(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO('{"c": 2}'))
+    assert read_json("-") == {"c": 2}
+
+
+def test_read_json_errors(tmp_path, monkeypatch):
+    with pytest.raises(PlexToolError, match="Could not read"):
+        read_json(str(tmp_path / "missing.json"))
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json"))
+    with pytest.raises(PlexToolError, match="standard input"):
+        read_json("-")

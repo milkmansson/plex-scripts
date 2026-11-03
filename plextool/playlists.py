@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import argparse
-import json
 
 from plexapi.exceptions import BadRequest
 
-from .common import PlexToolError, add_command, add_connection_args, connect, describe, paint, plural
+from .common import (
+    PlexToolError,
+    add_command,
+    add_connection_args,
+    connect,
+    describe,
+    paint,
+    plural,
+    read_json,
+    write_json,
+)
 
 FORMAT_VERSION = 1
 VIDEO_TYPES = ("movie", "episode")
@@ -59,7 +68,7 @@ def add_parser(subparsers) -> None:
         ['plextool playlists export playlists.json',
         'plextool playlists export christmas.json --name Christmas'])
     add_connection_args(export)
-    export.add_argument("file", help="file to write")
+    export.add_argument("file", help="file to write ('-' for standard output)")
     export.add_argument("--name", action="append", help="playlist to export; repeat for several (default: all)")
     export.set_defaults(run=run_export)
 
@@ -70,7 +79,7 @@ def add_parser(subparsers) -> None:
         ['plextool playlists import playlists.json               # preview',
         'plextool playlists import playlists.json --replace --commit'])
     add_connection_args(imp)
-    imp.add_argument("file", help="file written by 'playlists export'")
+    imp.add_argument("file", help="file written by 'playlists export' ('-' for standard input)")
     imp.add_argument("--replace", action="store_true", help="delete and recreate playlists that already exist")
     imp.add_argument("-y", "--commit", action="store_true", help="write the changes (default is a dry run)")
     imp.set_defaults(run=run_import)
@@ -94,18 +103,14 @@ def run_export(args: argparse.Namespace) -> int:
         if missing:
             raise PlexToolError(f"No such playlist: {', '.join(sorted(missing))}")
     data = {"version": FORMAT_VERSION, "playlists": [playlist_data(p) for p in chosen]}
-    with open(args.file, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    print(f"Wrote {plural(len(chosen), 'playlist')} to {args.file}")
+    out = write_json(args.file, data)
+    print(f"Wrote {plural(len(chosen), 'playlist')} to "
+          f"{'standard output' if args.file == '-' else args.file}", file=out)
     return 0
 
 
 def run_import(args: argparse.Namespace) -> int:
-    try:
-        with open(args.file, encoding="utf-8") as f:
-            data = json.load(f)
-    except (OSError, ValueError) as e:
-        raise PlexToolError(f"Could not read {args.file}: {e}") from None
+    data = read_json(args.file)
     if data.get("version") != FORMAT_VERSION:
         raise PlexToolError("Unrecognised file: not a plextool playlist export.")
 

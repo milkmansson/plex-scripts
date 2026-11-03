@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import shlex
+import subprocess
 import sys
 import textwrap
+from pathlib import Path
+from typing import TextIO
 
 from plexapi.exceptions import NotFound, Unauthorized
 from plexapi.server import PlexServer
@@ -13,6 +18,9 @@ from requests.exceptions import RequestException
 
 DEFAULT_URL = "http://localhost:32400"
 TOKEN_ENV = "PLEX_TOKEN"
+TOKEN_CMD_ENV = "PLEX_TOKEN_CMD"
+SIGN_IN_AGAIN = ("It may have been revoked or have expired. "
+                 "Sign in again with 'plextool auth login'.")
 URL_ENV = "PLEX_URL"
 
 # Which item types ('libtype') each kind of library section can be worked at.
@@ -103,28 +111,125 @@ def add_command(subparsers, name: str, summary: str, description: str, examples:
         formatter_class=argparse.RawDescriptionHelpFormatter)
 
 
+def add_token_args(parser: argparse.ArgumentParser) -> None:
+    """Add --token and --token-file."""
+    parser.add_argument(
+        "-T", "--token", dest="token", default=None,
+        help="Plex token. Visible in your shell history and process list; "
+             "prefer 'plextool auth login', --token-file or $PLEX_TOKEN")
+    parser.add_argument(
+        "--token-file", dest="token_file", metavar="FILE", default=None,
+        help="read the Plex token from FILE ('-' reads standard input)")
+
+
 def add_connection_args(parser: argparse.ArgumentParser) -> None:
-    """Add --token and --base-url, which every command needs."""
+    """Add --token, --token-file and --base-url, which every command needs."""
+    add_token_args(parser)
     parser.add_argument(
-        "-T", "--token", "--admin-token", dest="token",
-        default=os.environ.get(TOKEN_ENV),
-        help=f"Plex token (default: ${TOKEN_ENV})")
-    parser.add_argument(
-        "-b", "--base-url", dest="base_url",
-        default=os.environ.get(URL_ENV, DEFAULT_URL),
-        help=f"Plex server URL (default: ${URL_ENV} or {DEFAULT_URL})")
+        "-b", "--base-url", dest="base_url", default=None,
+        help=f"Plex server URL (default: ${URL_ENV}, else the server chosen with "
+             f"'plextool server use', else {DEFAULT_URL})")
+
+
+def _token_from_file(path: str) -> str:
+    try:
+        text = sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
+    except OSError as e:
+        raise PlexToolError(f"Could not read the token file: {e}") from None
+    token = text.strip()
+    if not token:
+        raise PlexToolError(f"The token file {path} is empty.")
+    return token
+
+
+def _token_from_command(command: str) -> str:
+    try:
+        done = subprocess.run(shlex.split(command), check=False, capture_output=True,
+                              text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
+        raise PlexToolError(f"${TOKEN_CMD_ENV} failed: {e}") from None
+    token = done.stdout.strip()
+    if done.returncode != 0 or not token:
+        raise PlexToolError(f"${TOKEN_CMD_ENV} gave no token (exit status {done.returncode}).")
+    return token
+
+
+def resolve_token(args: argparse.Namespace) -> tuple[str, str]:
+    """Find the Plex token to use, as (token, where it came from).
+
+    Order: --token, --token-file, $PLEX_TOKEN, the output of $PLEX_TOKEN_CMD, then the
+    login saved by 'plextool auth login'.
+    """
+    if args.token:
+        print("warning: --token leaves the token in your shell history and process list. "
+              f"Use 'plextool auth login', --token-file or ${TOKEN_ENV} instead.", file=sys.stderr)
+        return args.token, "--token"
+    if getattr(args, "token_file", None):
+        return _token_from_file(args.token_file), "--token-file"
+    if os.environ.get(TOKEN_ENV):
+        return os.environ[TOKEN_ENV], f"${TOKEN_ENV}"
+    if os.environ.get(TOKEN_CMD_ENV):
+        return _token_from_command(os.environ[TOKEN_CMD_ENV]), f"${TOKEN_CMD_ENV}"
+    from . import auth  # imported here because auth itself uses this module
+    token = auth.stored_token()
+    if token:
+        auth.use_saved_identity()
+        return token, "saved login"
+    raise PlexToolError("No Plex token found. Run 'plextool auth login', or use --token-file "
+                        f"or set ${TOKEN_ENV}.")
 
 
 def connect(args: argparse.Namespace) -> PlexServer:
-    """Connect to the server named in args, with friendly errors."""
-    if not args.token:
-        raise PlexToolError(f"No Plex token given. Use --token or set ${TOKEN_ENV}.")
+    """Connect to the server named in args, with friendly errors.
+
+    The server is --base-url, else $PLEX_URL, else the one saved by 'plextool server use',
+    else the default on this machine. args.base_url is set to the address that worked.
+    """
+    args.token, source = resolve_token(args)
+    url = args.base_url or os.environ.get(URL_ENV)
     try:
-        return PlexServer(args.base_url, args.token)
+        if url:
+            plex = PlexServer(url, args.token)
+        else:
+            from . import server  # imported here because server itself uses this module
+            saved = server.load_saved()
+            plex = server.connect_saved(saved, args.token) if saved else PlexServer(DEFAULT_URL, args.token)
     except Unauthorized:
-        raise PlexToolError("The Plex server rejected the token (401).") from None
+        hint = SIGN_IN_AGAIN if source == "saved login" else "Check that token, or use 'plextool auth login'."
+        raise PlexToolError(f"The Plex server rejected the token from {source} (401). {hint}") from None
     except RequestException as e:
-        raise PlexToolError(f"Could not reach {args.base_url}: {e}") from None
+        raise PlexToolError(f"Could not reach {url or DEFAULT_URL}: {e}") from None
+    args.base_url = plex._baseurl
+    return plex
+
+
+def write_json(path: str, data: dict) -> TextIO:
+    """Write data as JSON to a file, or to standard output if path is '-'.
+
+    Returns the stream a status message should go to: standard error when the data is
+    on standard output, so the message can't end up inside it.
+    """
+    if path == "-":
+        json.dump(data, sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+        return sys.stderr
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except OSError as e:
+        raise PlexToolError(f"Could not write {path}: {e}") from None
+    return sys.stdout
+
+
+def read_json(path: str) -> dict:
+    """Read JSON from a file, or from standard input if path is '-'."""
+    try:
+        if path == "-":
+            return json.load(sys.stdin)
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError) as e:
+        raise PlexToolError(f"Could not read {'standard input' if path == '-' else path}: {e}") from None
 
 
 def pick_sections(plex: PlexServer, names: list[str] | None) -> list:
